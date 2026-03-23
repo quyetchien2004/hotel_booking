@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #122c34;
+  background:
+    radial-gradient(circle at top, rgba(217, 123, 102, 0.22), transparent 35%),
+    linear-gradient(180deg, #f5efe6 0%, #f3eadf 42%, #f8f5ef 100%);
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.page-shell {
+  @apply mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 lg:px-8;
+}
+
+.card-surface {
+  @apply rounded-3xl border border-white/60 bg-white/75 shadow-soft backdrop-blur;
+}
