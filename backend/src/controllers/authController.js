@@ -54,13 +54,14 @@ export async function register(request, response, next) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const adminCount = await User.countDocuments({ role: { $in: ['admin', 'ADMIN'] } });
     const user = await User.create({
       name: fullName,
       username: username || undefined,
       phone: phone || '',
       email,
       passwordHash,
-      role: 'member',
+      role: adminCount === 0 ? 'admin' : 'member',
       trustScore: 0,
       isCccdVerified: false,
     });

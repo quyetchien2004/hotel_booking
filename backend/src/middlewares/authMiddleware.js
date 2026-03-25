@@ -24,3 +24,15 @@ export function requireAuth(request, _response, next) {
     next(error);
   }
 }
+
+export function requireAdmin(request, _response, next) {
+  const role = String(request.auth?.role || '').toLowerCase();
+
+  if (role !== 'admin') {
+    const error = new Error('Forbidden');
+    error.statusCode = 403;
+    return next(error);
+  }
+
+  next();
+}

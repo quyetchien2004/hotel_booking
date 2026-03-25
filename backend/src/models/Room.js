@@ -2,10 +2,20 @@ import mongoose from 'mongoose';
 
 const roomSchema = new mongoose.Schema(
   {
+    branchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+    },
     roomNumber: {
       type: String,
       required: true,
       trim: true,
+    },
+    floorNumber: {
+      type: Number,
+      min: 1,
+      default: 1,
     },
     roomType: {
       type: String,
@@ -44,6 +54,10 @@ const roomSchema = new mongoose.Schema(
     amenities: {
       type: [String],
       default: [],
+    },
+    hasNiceView: {
+      type: Boolean,
+      default: false,
     },
     imageUrls: {
       type: [String],
