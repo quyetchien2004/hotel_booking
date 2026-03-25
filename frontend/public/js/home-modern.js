@@ -75,7 +75,7 @@
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data && data.error ? data.error : 'Không thể tải kết quả.');
+        throw new Error(data && (data.error || data.message) ? (data.error || data.message) : 'Không thể tải kết quả.');
       }
 
       const branchCount = data.length;

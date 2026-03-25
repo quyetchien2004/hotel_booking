@@ -4,87 +4,13 @@ import { Branch } from '../models/Branch.js';
 import { Room } from '../models/Room.js';
 import { User } from '../models/User.js';
 import { Voucher } from '../models/Voucher.js';
-
-let seeded = false;
+import { ensureDemoData } from '../services/seedService.js';
 
 function toNumber(value, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
 }
 
-async function ensureSeedData() {
-  if (seeded) return;
-
-  const branchCount = await Branch.countDocuments();
-  if (branchCount === 0) {
-    const branches = await Branch.insertMany([
-      {
-        name: 'CCT Da Nang Riverside',
-        province: 'Da Nang',
-        address: '12 Bach Dang, Hai Chau, Da Nang',
-        latitude: 16.0678,
-        longitude: 108.224,
-        totalFloors: 12,
-        roomsPerFloor: 10,
-      },
-      {
-        name: 'CCT Sai Gon Center',
-        province: 'TP.HCM',
-        address: '88 Le Loi, Quan 1, TP.HCM',
-        latitude: 10.7756,
-        longitude: 106.7009,
-        totalFloors: 15,
-        roomsPerFloor: 12,
-      },
-    ]);
-
-    const rooms = await Room.insertMany([
-      {
-        branchId: branches[0]._id,
-        roomNumber: '101',
-        floorNumber: 1,
-        roomType: 'SINGLE',
-        capacity: 2,
-        hourlyRate: 180000,
-        dailyRate: 900000,
-        hasNiceView: true,
-        imageUrls: ['/img/rooms-details/2_nguoi.jpg'],
-      },
-      {
-        branchId: branches[1]._id,
-        roomNumber: '805',
-        floorNumber: 8,
-        roomType: 'DOUBLE',
-        capacity: 4,
-        hourlyRate: 260000,
-        dailyRate: 1450000,
-        hasNiceView: false,
-        imageUrls: ['/img/rooms-details/4_nguoi.jpg'],
-      },
-    ]);
-
-    const adminUser = await User.findOne({ role: { $in: ['admin', 'ADMIN'] } });
-
-    if (rooms.length > 0) {
-      await Booking.insertMany([
-        {
-          userId: adminUser?._id || null,
-          branchId: branches[0]._id,
-          roomId: rooms[0]._id,
-          customerFullName: 'Nguyen Van A',
-          checkInAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          checkOutAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-          totalPrice: 1800000,
-          paidAmount: 540000,
-          paymentOption: 'DEPOSIT_30',
-          workflowStatus: 'PENDING_DEPOSIT_APPROVAL',
-        },
-      ]);
-    }
-  }
-
-  seeded = true;
-}
 
 function toBranchResponse(branch) {
   return {
@@ -150,7 +76,7 @@ function toBookingResponse(booking) {
 
 export async function getBranches(_request, response, next) {
   try {
-    await ensureSeedData();
+    await ensureDemoData();
     const branches = await Branch.find().sort({ createdAt: -1 }).lean();
     response.json(branches.map(toBranchResponse));
   } catch (error) {
@@ -204,7 +130,7 @@ export async function deleteBranch(request, response, next) {
 
 export async function getRooms(request, response, next) {
   try {
-    await ensureSeedData();
+    await ensureDemoData();
     const branchId = String(request.query.branchId || '').trim();
 
     const filter = {};
@@ -316,7 +242,7 @@ export async function deleteVoucher(request, response, next) {
 
 export async function getPendingBookings(_request, response, next) {
   try {
-    await ensureSeedData();
+    await ensureDemoData();
     const bookings = await Booking.find({ workflowStatus: 'PENDING_DEPOSIT_APPROVAL' })
       .populate('userId', 'username')
       .populate('branchId', 'name')
@@ -334,7 +260,7 @@ export async function approveBooking(request, response, next) {
   try {
     const booking = await Booking.findByIdAndUpdate(
       request.params.bookingId,
-      { workflowStatus: 'APPROVED' },
+      { workflowStatus: 'APPROVED', paymentStatus: 'SUCCESS' },
       { new: true },
     )
       .populate('userId', 'username')
@@ -358,7 +284,7 @@ export async function rejectBooking(request, response, next) {
   try {
     const booking = await Booking.findByIdAndUpdate(
       request.params.bookingId,
-      { workflowStatus: 'REJECTED' },
+      { workflowStatus: 'REJECTED', paymentStatus: 'CANCELLED' },
       { new: true },
     )
       .populate('userId', 'username')

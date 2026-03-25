@@ -160,6 +160,15 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function getAuthHeaders(extraHeaders) {
+    const headers = Object.assign({}, extraHeaders || {});
+    const token = window.localStorage ? window.localStorage.getItem('accessToken') : '';
+    if (token) {
+      headers.Authorization = 'Bearer ' + token;
+    }
+    return headers;
+  }
+
   function normalizeCapacity(capacity) {
     const cap = toNumber(capacity);
     const supported = [2, 4, 6, 10];
@@ -398,7 +407,7 @@
       const res = await fetch('/api/hotels/search?' + toQueryString(payload));
       const data = await readApiResponse(res);
       if (!res.ok) {
-        throw new Error(data && data.error ? data.error : 'Không thể tìm phòng');
+        throw new Error(data && (data.error || data.message) ? (data.error || data.message) : 'Không thể tìm phòng');
       }
       renderResults(data);
       setStatus('Tìm thấy ' + data.length + ' chi nhánh phù hợp.', 'ok');
@@ -472,7 +481,7 @@
       return;
     }
 
-    const roomId = Number(btn.dataset.roomId || 0);
+    const roomId = String(btn.dataset.roomId || '').trim();
     const roomCtx = roomContextById[String(roomId)];
 
     if (!roomCtx) {
@@ -484,7 +493,7 @@
   }
 
   async function submitBooking() {
-    const roomId = Number(selectedRoomIdEl.value);
+    const roomId = String(selectedRoomIdEl.value || '').trim();
     const customerFullName = customerFullNameEl.value;
     const paymentOption = paymentOptionEl ? paymentOptionEl.value : 'DEPOSIT_30';
 
@@ -522,7 +531,7 @@
     try {
       const res = await fetch('/api/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(bookingPayload)
       });
 
@@ -539,7 +548,7 @@
       }
 
       if (!res.ok) {
-        throw new Error(data && data.error ? data.error : 'Đặt phòng thất bại');
+        throw new Error(data && (data.error || data.message) ? (data.error || data.message) : 'Đặt phòng thất bại');
       }
 
       bookingAlert.innerHTML = '<div class="alert-inline ok">Khởi tạo đặt phòng thành công! Mã booking #' + data.bookingId + '. Đang chuyển sang VNPAY để thanh toán.</div>';
