@@ -2,6 +2,12 @@ import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema(
   {
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
     email: {
       type: String,
       required: true,
@@ -20,6 +26,31 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       default: 'member',
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    cccdNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    isCccdVerified: {
+      type: Boolean,
+      default: false,
+    },
+    idCardVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    trustScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
     },
   },
   {

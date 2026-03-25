@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import SiteLayout from '../components/SiteLayout';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+import { changePasswordByCccd, getMe, verifyCccd } from '../services/api';
 
 function fmtDate(d) {
   if (!d) return '-';
@@ -14,96 +14,87 @@ export default function MyAccountPage() {
   if (!user) return <Navigate to="/login" replace />;
 
   const [accountUser, setAccountUser] = useState(null);
-  const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // CCCD verification state
-  const [cccdFile, setCccdFile] = useState(null);
-  const [cccdPreview, setCccdPreview] = useState(null);
+  const [cccdNumber, setCccdNumber] = useState('');
   const [verifyMsg, setVerifyMsg] = useState({ type: '', text: '' });
-  const [verifyProgress, setVerifyProgress] = useState(0);
   const [verifying, setVerifying] = useState(false);
 
-  // OTP / password reset state
+  // Password change by CCCD state
   const [resetEmail, setResetEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
+  const [resetCccd, setResetCccd] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [passMsg, setPassMsg] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    Promise.all([
-      api.get('/account/me').then(r => setAccountUser(r.data)).catch(() => {}),
-      api.get('/account/vouchers').then(r => setVouchers(r.data || [])).catch(() => {}),
-    ]).finally(() => setLoading(false));
+    getMe()
+      .then((data) => {
+        const profile = data?.user || null;
+        setAccountUser(profile);
+        setResetEmail(profile?.email || '');
+        setResetCccd(profile?.cccdNumber || '');
+        setCccdNumber(profile?.cccdNumber || '');
+      })
+      .catch(() => {
+        setPassMsg({ type: 'danger', text: 'Không tải được thông tin tài khoản.' });
+      })
+      .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (accountUser?.email) setResetEmail(accountUser.email);
-  }, [accountUser]);
-
-  function handleFileChange(e) {
-    setVerifyMsg({ type: '', text: '' });
-    setVerifyProgress(0);
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const allowed = ['image/jpeg', 'image/png'];
-    const ext = file.name.toLowerCase();
-    if (!allowed.includes(file.type) || (!ext.endsWith('.jpg') && !ext.endsWith('.jpeg') && !ext.endsWith('.png'))) {
-      setVerifyMsg({ type: 'danger', text: 'Chỉ chấp nhận file ảnh JPG, JPEG hoặc PNG.' });
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setVerifyMsg({ type: 'danger', text: 'Dung lượng ảnh phải nhỏ hơn 5MB.' });
-      return;
-    }
-    setCccdFile(file);
-    const reader = new FileReader();
-    reader.onload = ev => setCccdPreview(ev.target.result);
-    reader.readAsDataURL(file);
-  }
 
   async function handleVerifySubmit(e) {
     e.preventDefault();
-    if (!cccdFile) { setVerifyMsg({ type: 'danger', text: 'Vui lòng chọn ảnh CCCD.' }); return; }
-    const formData = new FormData();
-    formData.append('cccdImage', cccdFile);
+    if (!cccdNumber.trim()) {
+      setVerifyMsg({ type: 'danger', text: 'Vui lòng nhập số CCCD.' });
+      return;
+    }
+
     setVerifying(true);
-    setVerifyProgress(0);
     try {
-      const res = await api.post('/account/verify-idcard', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress(pe) {
-          if (pe.total) setVerifyProgress(Math.round((pe.loaded * 100) / pe.total));
-        },
-      });
-      const d = res.data || {};
+      const d = await verifyCccd({ cccdNumber: cccdNumber.trim() });
       setVerifyMsg({ type: 'success', text: `${d.message}. Trust hiện tại: ${d.trustScore}%` });
-      setTimeout(() => window.location.reload(), 1200);
+      setAccountUser((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cccdNumber: d.cccdNumber,
+          isCccdVerified: true,
+          idCardVerifiedAt: d.verifiedAt,
+          trustScore: d.trustScore,
+        };
+      });
+      setResetCccd(cccdNumber.trim());
     } catch (err) {
-      setVerifyMsg({ type: 'danger', text: err.response?.data?.error || err.message || 'Xác minh thất bại' });
+      setVerifyMsg({ type: 'danger', text: err.response?.data?.message || err.message || 'Xác minh thất bại' });
     } finally {
       setVerifying(false);
     }
   }
 
-  async function handleRequestOtp() {
-    setPassMsg({ type: '', text: '' });
-    try {
-      const res = await api.post('/account/request-password-otp', { email: resetEmail });
-      setPassMsg({ type: 'success', text: res.data.message });
-    } catch (err) {
-      setPassMsg({ type: 'danger', text: err.response?.data?.error || err.message });
-    }
-  }
-
   async function handleResetPassword() {
     setPassMsg({ type: '', text: '' });
+
+    if (!resetEmail.trim() || !resetCccd.trim() || !newPassword) {
+      setPassMsg({ type: 'danger', text: 'Vui lòng nhập đầy đủ Email, CCCD và mật khẩu mới.' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPassMsg({ type: 'danger', text: 'Mật khẩu xác nhận không khớp.' });
+      return;
+    }
+
     try {
-      const res = await api.post('/account/reset-password', { email: resetEmail, otpCode, newPassword });
-      setPassMsg({ type: 'success', text: res.data.message + '. Đang chuyển về trang đăng nhập...' });
+      const res = await changePasswordByCccd({
+        email: resetEmail.trim(),
+        cccdNumber: resetCccd.trim(),
+        newPassword,
+      });
+      setPassMsg({ type: 'success', text: res.message + '. Đang chuyển về trang đăng nhập...' });
       setTimeout(() => window.location.href = '/login?passwordReset=true', 1400);
     } catch (err) {
-      setPassMsg({ type: 'danger', text: err.response?.data?.error || err.message });
+      setPassMsg({ type: 'danger', text: err.response?.data?.message || err.message });
     }
   }
 
@@ -121,14 +112,15 @@ export default function MyAccountPage() {
           <div className="card card-body mb-3">
             <div className="row g-3">
               <div className="col-md-6">
-                <div><strong>Tài khoản:</strong> {accountUser.username}</div>
-                <div><strong>Họ tên:</strong> {accountUser.fullName}</div>
+                <div><strong>Tài khoản:</strong> {accountUser.username || '-'}</div>
+                <div><strong>Họ tên:</strong> {accountUser.fullName || accountUser.name}</div>
                 <div><strong>Email:</strong> {accountUser.email}</div>
-                <div><strong>SĐT:</strong> {accountUser.phone}</div>
+                <div><strong>SĐT:</strong> {accountUser.phone || '-'}</div>
               </div>
               <div className="col-md-6">
                 <div><strong>Độ tin cậy:</strong> {accountUser.trustScore}%</div>
-                <div><strong>Trạng thái xác minh:</strong> {accountUser.accountVerificationStatus}</div>
+                <div><strong>Trạng thái xác minh:</strong> {accountUser.isCccdVerified ? 'Đã xác minh CCCD' : 'Chưa xác minh CCCD'}</div>
+                <div><strong>Số CCCD:</strong> {accountUser.cccdNumber || '-'}</div>
                 <div><strong>Xác minh CCCD lúc:</strong> {fmtDate(accountUser.idCardVerifiedAt)}</div>
               </div>
             </div>
@@ -138,29 +130,18 @@ export default function MyAccountPage() {
         {/* CCCD Verification */}
         <div className="card card-body mb-3">
           <h5>Xác minh CCCD</h5>
-          <p className="text-muted small">Upload ảnh CCCD để xác minh tên tài khoản. Sau khi xác minh đúng, độ tin cậy tăng lên 80%.</p>
+          <p className="text-muted small">Nhập số CCCD để xác minh tài khoản. Sau khi xác minh thành công, độ tin cậy được nâng lên 80%.</p>
           <form onSubmit={handleVerifySubmit}>
             <input
-              type="file"
+              type="text"
               className="form-control mb-2"
-              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-              onChange={handleFileChange}
+              placeholder="Nhập số CCCD (9-12 chữ số)"
+              value={cccdNumber}
+              onChange={(e) => setCccdNumber(e.target.value)}
               required
             />
-            {cccdPreview && (
-              <div className="mb-2">
-                <img src={cccdPreview} alt="Preview CCCD" style={{ maxWidth: 320, width: '100%', borderRadius: 10, border: '1px solid #e2d1bb' }} />
-              </div>
-            )}
-            {verifying && (
-              <div className="progress mb-2" style={{ height: 14 }}>
-                <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: `${verifyProgress}%` }}>
-                  {verifyProgress}%
-                </div>
-              </div>
-            )}
             <button className="btn btn-brand" type="submit" disabled={verifying}>
-              {verifying ? 'Đang upload...' : 'Upload và xác minh'}
+              {verifying ? 'Đang xác minh...' : 'Xác minh CCCD'}
             </button>
           </form>
           {verifyMsg.text && (
@@ -168,32 +149,33 @@ export default function MyAccountPage() {
           )}
         </div>
 
-        {/* OTP Password Reset */}
+        {/* Password Reset By CCCD */}
         <div className="card card-body mb-3" style={{ borderRadius: 16 }}>
           <div className="d-flex align-items-center gap-3 mb-3">
             <div style={{ width: 40, height: 40, borderRadius: '50%', flex: '0 0 40px', background: 'linear-gradient(135deg,#1e4fc2,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><polyline points="16 3 12 7 8 3" /></svg>
             </div>
             <div>
-              <h5 className="mb-0" style={{ fontSize: '1rem' }}>Đổi mật khẩu qua OTP email</h5>
-              <small className="text-muted">Email → nhận OTP → đặt mật khẩu mới</small>
+              <h5 className="mb-0" style={{ fontSize: '1rem' }}>Đổi mật khẩu qua xác thực CCCD</h5>
+              <small className="text-muted">Email + CCCD đã xác minh → đặt mật khẩu mới</small>
             </div>
           </div>
           <div className="d-flex flex-wrap gap-2 align-items-end">
-            <div style={{ flex: 2, minWidth: 200 }}>
+            <div style={{ flex: 2, minWidth: 220 }}>
               <label className="form-label fw-semibold small mb-1">Email đăng ký</label>
-              <div className="input-group input-group-sm">
-                <input className="form-control" placeholder="example@email.com" value={resetEmail} onChange={e => setResetEmail(e.target.value)} />
-                <button className="btn btn-outline-primary" type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleRequestOtp}>Gửi OTP</button>
-              </div>
+              <input className="form-control form-control-sm" placeholder="example@email.com" value={resetEmail} onChange={e => setResetEmail(e.target.value)} />
             </div>
-            <div style={{ flex: '0 0 110px' }}>
-              <label className="form-label fw-semibold small mb-1">Mã OTP</label>
-              <input className="form-control form-control-sm" placeholder="6 chữ số" maxLength="6" style={{ letterSpacing: 3, fontWeight: 600 }} value={otpCode} onChange={e => setOtpCode(e.target.value)} />
+            <div style={{ flex: 1, minWidth: 170 }}>
+              <label className="form-label fw-semibold small mb-1">Số CCCD</label>
+              <input className="form-control form-control-sm" placeholder="9-12 chữ số" value={resetCccd} onChange={e => setResetCccd(e.target.value)} />
             </div>
             <div style={{ flex: 1, minWidth: 180 }}>
               <label className="form-label fw-semibold small mb-1">Mật khẩu mới</label>
               <input type="password" className="form-control form-control-sm" placeholder="Tối thiểu 6 ký tự" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            </div>
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <label className="form-label fw-semibold small mb-1">Xác nhận mật khẩu</label>
+              <input type="password" className="form-control form-control-sm" placeholder="Nhập lại mật khẩu mới" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
             </div>
             <div style={{ flex: '0 0 auto' }}>
               <button className="btn btn-brand btn-sm" type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleResetPassword}>Xác nhận đổi</button>
@@ -203,35 +185,6 @@ export default function MyAccountPage() {
             <div className={`alert alert-${passMsg.type} mb-0 mt-2`}>{passMsg.text}</div>
           )}
         </div>
-
-        {/* User Vouchers */}
-        {vouchers.length > 0 && (
-          <div className="card card-body">
-            <h5>Voucher của bạn</h5>
-            <div className="table-responsive">
-              <table className="table table-sm">
-                <thead>
-                  <tr><th>Mã</th><th>Giảm</th><th>Lý do</th><th>Hạn dùng</th><th>Trạng thái</th></tr>
-                </thead>
-                <tbody>
-                  {vouchers.map((v, i) => {
-                    const expired = v.validTo && new Date(v.validTo) < new Date();
-                    const status = v.usedAt ? 'Đã dùng' : expired ? 'Hết hạn' : 'Còn hạn';
-                    return (
-                      <tr key={i}>
-                        <td>{v.code}</td>
-                        <td>{v.discountPercent}%</td>
-                        <td>{v.reason}</td>
-                        <td>{fmtDate(v.validTo)}</td>
-                        <td>{status}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
     </SiteLayout>
   );
