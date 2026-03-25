@@ -133,6 +133,31 @@ h6,
   margin-left: 12px;
 }
 
+@media (min-width: 992px) {
+  .brand-nav-shell {
+    display: flex !important;
+    flex-basis: auto;
+    flex-grow: 1;
+    align-items: center;
+  }
+
+  .brand-nav-shell .navbar-nav {
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .brand-nav-shell {
+    display: none;
+    width: 100%;
+    padding-top: 10px;
+  }
+
+  .brand-nav-shell.is-open {
+    display: block;
+  }
+}
+
 .btn {
   white-space: nowrap;
 }

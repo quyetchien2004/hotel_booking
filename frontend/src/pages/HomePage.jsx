@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import SiteLayout from '../components/SiteLayout';
+import SiteHeader from '../components/SiteHeader';
+import SiteFooter from '../components/SiteFooter';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function HomePage() {
@@ -16,8 +17,9 @@ export default function HomePage() {
   }, []);
 
   return (
-    <SiteLayout activePage="home" headerVariant="dark">
+    <>
       <header className="site-header">
+        <SiteHeader activePage="home" variant="dark" />
         <section className="hero-section">
           <div className="container hero-grid">
             <div className="hero-copy">
@@ -283,6 +285,7 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-    </SiteLayout>
+      <SiteFooter />
+    </>
   );
 }
