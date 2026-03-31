@@ -30,4 +30,29 @@ export async function getMe() {
   return response.data;
 }
 
+export async function verifyCccd(payload) {
+  const response = await api.post('/auth/verify-cccd', payload);
+  return response.data;
+}
+
+export async function changePasswordByCccd(payload) {
+  const response = await api.post('/auth/change-password-cccd', payload);
+  return response.data;
+}
+
+export async function listRooms(params = {}) {
+  const response = await api.get('/rooms', { params });
+  return response.data;
+}
+
+export async function getRoomDetail(roomId) {
+  const response = await api.get(`/rooms/${roomId}`);
+  return response.data;
+}
+
+export async function createSupportRequest(payload) {
+  const response = await api.post('/support-requests', payload);
+  return response.data;
+}
+
 export default api;

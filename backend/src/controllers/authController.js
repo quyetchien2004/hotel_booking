@@ -1,7 +1,12 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { signAccessToken } from '../services/tokenService.js';
-import { validateLoginPayload, validateRegisterPayload } from '../validators/authValidator.js';
+import {
+  validateChangePasswordByCccdPayload,
+  validateLoginPayload,
+  validateRegisterPayload,
+  validateVerifyCccdPayload,
+} from '../validators/authValidator.js';
 
 function createAuthResponse(user) {
   const token = signAccessToken({
@@ -15,7 +20,13 @@ function createAuthResponse(user) {
     user: {
       id: user._id,
       name: user.name,
+      fullName: user.name,
+      username: user.username || null,
       email: user.email,
+      phone: user.phone || '',
+      cccdNumber: user.cccdNumber || null,
+      isCccdVerified: Boolean(user.isCccdVerified),
+      trustScore: Number(user.trustScore || 0),
       role: user.role,
     },
   };
@@ -31,21 +42,28 @@ export async function register(request, response, next) {
       throw error;
     }
 
-    const { name, email, password } = validation.data;
-    const existingUser = await User.findOne({ email }).lean();
+    const { fullName, username, phone, email, password } = validation.data;
+    const existingUser = await User.findOne({
+      $or: [{ email }, ...(username ? [{ username }] : [])],
+    }).lean();
 
     if (existingUser) {
-      const error = new Error('Email already exists');
+      const error = new Error('Email hoặc username đã tồn tại');
       error.statusCode = 409;
       throw error;
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const adminCount = await User.countDocuments({ role: { $in: ['admin', 'ADMIN'] } });
     const user = await User.create({
-      name,
+      name: fullName,
+      username: username || undefined,
+      phone: phone || '',
       email,
       passwordHash,
-      role: 'member',
+      role: adminCount === 0 ? 'admin' : 'member',
+      trustScore: 0,
+      isCccdVerified: false,
     });
 
     response.status(201).json(createAuthResponse(user));
@@ -64,8 +82,10 @@ export async function login(request, response, next) {
       throw error;
     }
 
-    const { email, password } = validation.data;
-    const user = await User.findOne({ email });
+    const { identifier, password } = validation.data;
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    });
 
     if (!user) {
       const error = new Error('Invalid email or password');
@@ -89,7 +109,9 @@ export async function login(request, response, next) {
 
 export async function getProfile(request, response, next) {
   try {
-    const user = await User.findById(request.auth.userId).select('_id name email role');
+    const user = await User.findById(request.auth.userId).select(
+      '_id name username email phone role cccdNumber isCccdVerified idCardVerifiedAt trustScore',
+    );
 
     if (!user) {
       const error = new Error('User not found');
@@ -101,9 +123,106 @@ export async function getProfile(request, response, next) {
       user: {
         id: user._id,
         name: user.name,
+        fullName: user.name,
+        username: user.username || null,
         email: user.email,
+        phone: user.phone || '',
+        cccdNumber: user.cccdNumber || null,
+        isCccdVerified: Boolean(user.isCccdVerified),
+        idCardVerifiedAt: user.idCardVerifiedAt,
+        trustScore: Number(user.trustScore || 0),
         role: user.role,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyCccd(request, response, next) {
+  try {
+    const validation = validateVerifyCccdPayload(request.body);
+
+    if (!validation.valid) {
+      const error = new Error(validation.errors[0]);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const { cccdNumber } = validation.data;
+
+    const duplicated = await User.findOne({
+      cccdNumber,
+      _id: { $ne: request.auth.userId },
+    }).lean();
+
+    if (duplicated) {
+      const error = new Error('CCCD đã được sử dụng bởi tài khoản khác');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      request.auth.userId,
+      {
+        $set: {
+          cccdNumber,
+          isCccdVerified: true,
+          idCardVerifiedAt: new Date(),
+          trustScore: 80,
+        },
+      },
+      { new: true },
+    ).lean();
+
+    if (!user) {
+      const error = new Error('Không tìm thấy tài khoản');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    response.json({
+      message: 'Xác thực CCCD thành công',
+      cccdNumber: user.cccdNumber,
+      trustScore: user.trustScore,
+      verifiedAt: user.idCardVerifiedAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function changePasswordByCccd(request, response, next) {
+  try {
+    const validation = validateChangePasswordByCccdPayload(request.body);
+
+    if (!validation.valid) {
+      const error = new Error(validation.errors[0]);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const { email, cccdNumber, newPassword } = validation.data;
+
+    const user = await User.findOne({ email, cccdNumber });
+
+    if (!user) {
+      const error = new Error('Email hoặc CCCD không đúng');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (!user.isCccdVerified) {
+      const error = new Error('Tài khoản chưa xác thực CCCD');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    response.json({
+      message: 'Đổi mật khẩu thành công qua xác thực CCCD',
     });
   } catch (error) {
     next(error);
