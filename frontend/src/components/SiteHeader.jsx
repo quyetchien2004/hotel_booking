@@ -86,6 +86,11 @@ export default function SiteHeader({ activePage = '', variant = 'light' }) {
             )}
             {isAdmin && (
               <li className="nav-item">
+                <NavLink className="nav-link" to="/admin/support-requests" onClick={handleNavClick}>Support Requests</NavLink>
+              </li>
+            )}
+            {isAdmin && (
+              <li className="nav-item">
                 <NavLink className={`nav-link${activePage === 'users' ? ' active' : ''}`} to="/users" onClick={handleNavClick}>Users</NavLink>
               </li>
             )}

@@ -50,4 +50,9 @@ export async function getRoomDetail(roomId) {
   return response.data;
 }
 
+export async function createSupportRequest(payload) {
+  const response = await api.post('/support-requests', payload);
+  return response.data;
+}
+
 export default api;

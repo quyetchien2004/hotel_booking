@@ -90,6 +90,11 @@ export default function PaymentResultPage() {
               <Link className="btn btn-brand" to="/my-bookings">
                 <i className="fa-solid fa-receipt me-1" /> Xem đơn của tôi
               </Link>
+              {bookingId && (
+                <Link className="btn btn-outline-primary" to={`/invoice/${encodeURIComponent(invoiceNumber || bookingId)}`}>
+                  <i className="fa-solid fa-file-invoice me-1" /> Xem/In hóa đơn
+                </Link>
+              )}
               <Link className="btn btn-outline-secondary" to="/booking">
                 <i className="fa-solid fa-hotel me-1" /> Đặt phòng tiếp
               </Link>

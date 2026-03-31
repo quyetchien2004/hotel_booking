@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Booking } from '../models/Booking.js';
 import { Branch } from '../models/Branch.js';
 import { Room } from '../models/Room.js';
+import { SupportRequest } from '../models/SupportRequest.js';
 import { User } from '../models/User.js';
 import { Voucher } from '../models/Voucher.js';
 import { ensureDemoData } from '../services/seedService.js';
@@ -55,6 +56,19 @@ function toVoucherResponse(voucher) {
     active: voucher.active,
     validFrom: voucher.validFrom,
     validTo: voucher.validTo,
+  };
+}
+
+function toSupportRequestResponse(item) {
+  return {
+    id: item._id,
+    name: item.name,
+    email: item.email,
+    topic: item.topic,
+    message: item.message,
+    status: item.status,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
   };
 }
 
@@ -364,6 +378,44 @@ export async function createUserByAdmin(request, response, next) {
       phone: user.phone,
       role: user.role,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getSupportRequests(_request, response, next) {
+  try {
+    const requests = await SupportRequest.find().sort({ createdAt: -1 }).lean();
+    response.json(requests.map(toSupportRequestResponse));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateSupportRequestStatus(request, response, next) {
+  try {
+    const status = String(request.body?.status || '').trim().toUpperCase();
+    const allowed = ['NEW', 'IN_PROGRESS', 'RESOLVED'];
+
+    if (!allowed.includes(status)) {
+      const error = new Error('Trang thai ho tro khong hop le');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updated = await SupportRequest.findByIdAndUpdate(
+      request.params.supportRequestId,
+      { status },
+      { new: true },
+    ).lean();
+
+    if (!updated) {
+      const error = new Error('Khong tim thay yeu cau ho tro');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    response.json(toSupportRequestResponse(updated));
   } catch (error) {
     next(error);
   }

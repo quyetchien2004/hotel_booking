@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import AboutPage from './pages/AboutPage';
 import AdminBookingsPage from './pages/AdminBookingsPage';
 import AdminManagePage from './pages/AdminManagePage';
+import AdminSupportRequestsPage from './pages/AdminSupportRequestsPage';
 import BlogDetailsPage from './pages/BlogDetailsPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
@@ -11,6 +12,7 @@ import ContactPage from './pages/ContactPage';
 import FaqPage from './pages/FaqPage';
 import HomePage from './pages/HomePage';
 import Index2Page from './pages/Index2Page';
+import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import LoginPage from './pages/LoginPage';
 import MyAccountPage from './pages/MyAccountPage';
 import MyBookingsPage from './pages/MyBookingsPage';
@@ -57,9 +59,11 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/my-account" element={<MyAccountPage />} />
       <Route path="/my-bookings" element={<MyBookingsPage />} />
+      <Route path="/invoice/:invoiceRef" element={<InvoiceDetailPage />} />
       <Route path="/users" element={<UsersPage />} />
       <Route path="/admin/bookings" element={<AdminBookingsPage />} />
       <Route path="/admin/manage" element={<AdminManagePage />} />
+      <Route path="/admin/support-requests" element={<AdminSupportRequestsPage />} />
       <Route path="/admin-bookings" element={<Navigate to="/admin/bookings" replace />} />
       <Route path="/admin-manage" element={<Navigate to="/admin/manage" replace />} />
 

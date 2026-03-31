@@ -7,6 +7,7 @@ import {
   deleteVoucher,
   getBranches,
   getPendingBookings,
+  getSupportRequests,
   getRooms,
   getVouchers,
   listUsers,
@@ -14,6 +15,7 @@ import {
   saveBranch,
   saveRoom,
   saveVoucher,
+  updateSupportRequestStatus,
 } from '../controllers/adminController.js';
 import { requireAdmin, requireAuth } from '../middlewares/authMiddleware.js';
 
@@ -39,6 +41,9 @@ router.post('/vouchers/:voucherId/delete', deleteVoucher);
 router.get('/bookings/pending', getPendingBookings);
 router.post('/bookings/:bookingId/approve', approveBooking);
 router.post('/bookings/:bookingId/reject', rejectBooking);
+
+router.get('/support-requests', getSupportRequests);
+router.patch('/support-requests/:supportRequestId/status', updateSupportRequestStatus);
 
 router.get('/users', listUsers);
 router.post('/users', createUserByAdmin);

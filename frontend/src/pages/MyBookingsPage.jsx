@@ -22,6 +22,7 @@ const STATUS_MAP = {
 export default function MyBookingsPage() {
   const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
+  const [invoiceQuery, setInvoiceQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,6 +38,17 @@ export default function MyBookingsPage() {
   const total = bookings.length;
   const withVoucher = bookings.filter(b => b.appliedVoucherCode).length;
   const pending = bookings.filter(b => b.paymentStatus === 'PENDING').length;
+  const invoiceMatch = bookings.find((item) => {
+    const normalized = String(invoiceQuery || '').trim().toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+
+    return (
+      String(item.invoiceNumber || '').toLowerCase() === normalized ||
+      String(item.bookingId || '').toLowerCase() === normalized.replace('#', '')
+    );
+  });
 
   return (
     <SiteLayout activePage="my-bookings" headerVariant="light">
@@ -67,6 +79,30 @@ export default function MyBookingsPage() {
               <div className="mini-stat">
                 <div className="mini-stat-label">Đơn đang chờ xác nhận</div>
                 <div className="mini-stat-value">{pending}</div>
+              </div>
+            </div>
+            <div className="col-12">
+              <div className="card card-body">
+                <div className="row g-2 align-items-end">
+                  <div className="col-md-7">
+                    <label className="form-label small fw-semibold">Kiểm tra hóa đơn đặt phòng</label>
+                    <input
+                      className="form-control"
+                      placeholder="Nhập số hóa đơn (VD: INV-2026-XXXXXX) hoặc mã đơn"
+                      value={invoiceQuery}
+                      onChange={(event) => setInvoiceQuery(event.target.value)}
+                    />
+                  </div>
+                  <div className="col-md-5">
+                    {!invoiceQuery.trim() && <div className="text-muted small">Nhập mã để tra cứu nhanh trạng thái thanh toán.</div>}
+                    {invoiceQuery.trim() && !invoiceMatch && <div className="text-danger small">Không tìm thấy hóa đơn hoặc mã đơn tương ứng.</div>}
+                    {invoiceMatch && (
+                      <div className="small">
+                        <span className="fw-semibold">Tìm thấy:</span> Đơn #{invoiceMatch.bookingId} • Hóa đơn {invoiceMatch.invoiceNumber || 'Chưa phát hành'} • Thanh toán {invoiceMatch.paymentStatus}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -116,6 +152,11 @@ export default function MyBookingsPage() {
                           Thanh toán: {b.paymentOption || '-'}, đã thanh toán {fmt(b.paidAmount)}
                         </div>
                         <div className="text-muted small">Hóa đơn: {b.invoiceNumber || 'Chưa phát hành'}</div>
+                        <div className="mt-1">
+                          <Link className="btn btn-outline-primary btn-sm" to={`/invoice/${encodeURIComponent(b.invoiceNumber || b.bookingId)}`}>
+                            Xem/In hóa đơn
+                          </Link>
+                        </div>
                         <div className="fw-bold text-success">{fmt(b.totalPrice)}</div>
                       </td>
                       <td>

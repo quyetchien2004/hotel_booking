@@ -123,3 +123,73 @@ export async function getMyBookings(request, response, next) {
     next(error);
   }
 }
+
+export async function getInvoiceDetail(request, response, next) {
+  try {
+    const invoiceRef = String(request.params.invoiceRef || '').trim();
+
+    if (!invoiceRef) {
+      const error = new Error('Thieu ma hoa don hoac ma don');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const isAdmin = String(request.auth?.role || '').toLowerCase() === 'admin';
+    const ownerFilter = isAdmin ? {} : { userId: request.auth.userId };
+
+    const booking = await Booking.findOne({
+      ...ownerFilter,
+      $or: [{ invoiceNumber: invoiceRef }, { _id: invoiceRef }],
+    })
+      .populate('branchId', 'name address province')
+      .populate('roomId', 'roomNumber roomType capacity')
+      .populate('userId', 'name username email phone');
+
+    if (!booking) {
+      const error = new Error('Khong tim thay hoa don tuong ung');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    response.json({
+      bookingId: booking._id,
+      invoiceNumber: booking.invoiceNumber,
+      invoiceIssuedAt: booking.invoiceIssuedAt,
+      paymentStatus: booking.paymentStatus,
+      workflowStatus: booking.workflowStatus,
+      customer: {
+        fullName: booking.customerFullName,
+        username: booking.userId?.username || null,
+        email: booking.userId?.email || null,
+        phone: booking.userId?.phone || null,
+      },
+      branch: {
+        name: booking.branchId?.name || '-',
+        address: booking.branchId?.address || '-',
+        province: booking.branchId?.province || '-',
+      },
+      room: {
+        roomNumber: booking.roomId?.roomNumber || '-',
+        roomType: booking.roomId?.roomType || '-',
+        capacity: booking.roomId?.capacity || 0,
+      },
+      stay: {
+        rentalMode: booking.rentalMode,
+        checkInAt: booking.checkInAt,
+        checkOutAt: booking.checkOutAt,
+      },
+      payment: {
+        paymentOption: booking.paymentOption,
+        originalPrice: booking.originalPrice,
+        discountAmount: booking.discountAmount,
+        totalPrice: booking.totalPrice,
+        requiredPaymentAmount: booking.requiredPaymentAmount,
+        paidAmount: booking.paidAmount,
+        appliedVoucherCode: booking.appliedVoucherCode,
+      },
+      createdAt: booking.createdAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+}

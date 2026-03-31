@@ -1,23 +1,33 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import SiteLayout from '../components/SiteLayout';
+import { createSupportRequest } from '../services/api';
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', topic: 'Đặt phòng & booking', message: '' });
   const [result, setResult] = useState({ type: '', text: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   function handleChange(e) {
     setForm(p => ({ ...p, [e.target.name]: e.target.value }));
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!form.name || !form.email || !form.message) {
       setResult({ type: 'warning', text: 'Vui lòng điền đầy đủ thông tin.' });
       return;
     }
-    // Demo: show success message (connect to backend API as needed)
-    setResult({ type: 'success', text: 'Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất.' });
-    setForm({ name: '', email: '', topic: 'Đặt phòng & booking', message: '' });
+
+    try {
+      setSubmitting(true);
+      const data = await createSupportRequest(form);
+      setResult({ type: 'success', text: data?.message || 'Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất.' });
+      setForm({ name: '', email: '', topic: 'Đặt phòng & booking', message: '' });
+    } catch (error) {
+      setResult({ type: 'danger', text: error?.response?.data?.message || 'Không gửi được yêu cầu hỗ trợ. Vui lòng thử lại.' });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -111,7 +121,9 @@ export default function ContactPage() {
                   <textarea className="form-control" name="message" rows={4} placeholder="Mô tả vấn đề bạn đang gặp phải..." value={form.message} onChange={handleChange} />
                 </div>
                 <div className="col-12">
-                  <button className="btn btn-brand" type="button" onClick={handleSend}>Gửi yêu cầu hỗ trợ</button>
+                  <button className="btn btn-brand" type="button" onClick={handleSend} disabled={submitting}>
+                    {submitting ? 'Đang gửi...' : 'Gửi yêu cầu hỗ trợ'}
+                  </button>
                 </div>
                 {result.text && (
                   <div className="col-12">
