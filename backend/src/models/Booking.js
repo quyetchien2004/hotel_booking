@@ -48,6 +48,37 @@ const bookingSchema = new mongoose.Schema(
       enum: ['PENDING_PAYMENT', 'PENDING_DEPOSIT_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED'],
       default: 'PENDING_PAYMENT',
     },
+    stayStatus: {
+      type: String,
+      enum: ['RESERVED', 'CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW'],
+      default: 'RESERVED',
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    cancellationReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    rescheduledAt: {
+      type: Date,
+      default: null,
+    },
+    checkedInAtActual: {
+      type: Date,
+      default: null,
+    },
+    checkedOutAtActual: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

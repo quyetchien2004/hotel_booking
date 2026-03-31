@@ -7,6 +7,16 @@ export default function BookingPage() {
   const { user } = useAuth();
 
   useEffect(() => {
+    const modalElement = document.getElementById('bookingModal');
+    const originalParent = modalElement?.parentElement || null;
+    const originalNextSibling = modalElement?.nextSibling || null;
+
+    // Move the modal to <body> so Bootstrap positions it against the viewport,
+    // not against any page wrapper that may affect fixed positioning.
+    if (modalElement && modalElement.parentElement !== document.body) {
+      document.body.appendChild(modalElement);
+    }
+
     // Load Leaflet CSS
     const leafletCss = document.createElement('link');
     leafletCss.rel = 'stylesheet';
@@ -29,6 +39,14 @@ export default function BookingPage() {
     document.body.appendChild(leafletJs);
 
     return () => {
+      if (modalElement && originalParent) {
+        if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+          originalParent.insertBefore(modalElement, originalNextSibling);
+        } else {
+          originalParent.appendChild(modalElement);
+        }
+      }
+
       try { document.head.removeChild(leafletCss); } catch {}
       try { document.body.removeChild(leafletJs); } catch {}
       const bScript = document.querySelector('script[src="/js/booking-modern.js"]');

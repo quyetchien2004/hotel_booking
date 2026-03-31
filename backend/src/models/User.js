@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'member',
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
     phone: {
       type: String,
       trim: true,
@@ -37,6 +41,10 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       trim: true,
+    },
+    cccdImageDataUrl: {
+      type: String,
+      default: '',
     },
     isCccdVerified: {
       type: Boolean,
@@ -51,6 +59,14 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
       max: 100,
+    },
+    passwordResetOtpHash: {
+      type: String,
+      default: '',
+    },
+    passwordResetOtpExpiresAt: {
+      type: Date,
+      default: null,
     },
   },
   {

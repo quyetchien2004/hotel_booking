@@ -1,12 +1,20 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
+import { sendPasswordResetOtpEmail, generateOtpCode, hashOtp } from '../services/mailService.js';
 import { signAccessToken } from '../services/tokenService.js';
 import {
-  validateChangePasswordByCccdPayload,
   validateLoginPayload,
   validateRegisterPayload,
+  validateResetPasswordWithOtpPayload,
+  validateSendResetOtpPayload,
   validateVerifyCccdPayload,
 } from '../validators/authValidator.js';
+
+function createHttpError(message, statusCode = 400) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
 
 function createAuthResponse(user) {
   const token = signAccessToken({
@@ -24,7 +32,9 @@ function createAuthResponse(user) {
       username: user.username || null,
       email: user.email,
       phone: user.phone || '',
+      isActive: Boolean(user.isActive !== false),
       cccdNumber: user.cccdNumber || null,
+      cccdImageDataUrl: user.cccdImageDataUrl || '',
       isCccdVerified: Boolean(user.isCccdVerified),
       trustScore: Number(user.trustScore || 0),
       role: user.role,
@@ -37,9 +47,7 @@ export async function register(request, response, next) {
     const validation = validateRegisterPayload(request.body);
 
     if (!validation.valid) {
-      const error = new Error(validation.errors[0]);
-      error.statusCode = 400;
-      throw error;
+      throw createHttpError(validation.errors[0], 400);
     }
 
     const { fullName, username, phone, email, password } = validation.data;
@@ -48,9 +56,7 @@ export async function register(request, response, next) {
     }).lean();
 
     if (existingUser) {
-      const error = new Error('Email hoặc username đã tồn tại');
-      error.statusCode = 409;
-      throw error;
+      throw createHttpError('Email hoac username da ton tai', 409);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -77,9 +83,7 @@ export async function login(request, response, next) {
     const validation = validateLoginPayload(request.body);
 
     if (!validation.valid) {
-      const error = new Error(validation.errors[0]);
-      error.statusCode = 400;
-      throw error;
+      throw createHttpError(validation.errors[0], 400);
     }
 
     const { identifier, password } = validation.data;
@@ -88,17 +92,16 @@ export async function login(request, response, next) {
     });
 
     if (!user) {
-      const error = new Error('Invalid email or password');
-      error.statusCode = 401;
-      throw error;
+      throw createHttpError('Invalid email or password', 401);
     }
 
     const validPassword = await bcrypt.compare(password, user.passwordHash);
-
     if (!validPassword) {
-      const error = new Error('Invalid email or password');
-      error.statusCode = 401;
-      throw error;
+      throw createHttpError('Invalid email or password', 401);
+    }
+
+    if (user.isActive === false) {
+      throw createHttpError('Tai khoan da bi khoa', 403);
     }
 
     response.json(createAuthResponse(user));
@@ -110,13 +113,11 @@ export async function login(request, response, next) {
 export async function getProfile(request, response, next) {
   try {
     const user = await User.findById(request.auth.userId).select(
-      '_id name username email phone role cccdNumber isCccdVerified idCardVerifiedAt trustScore',
+      '_id name username email phone role isActive cccdNumber cccdImageDataUrl isCccdVerified idCardVerifiedAt trustScore',
     );
 
     if (!user) {
-      const error = new Error('User not found');
-      error.statusCode = 404;
-      throw error;
+      throw createHttpError('User not found', 404);
     }
 
     response.json({
@@ -127,7 +128,9 @@ export async function getProfile(request, response, next) {
         username: user.username || null,
         email: user.email,
         phone: user.phone || '',
+        isActive: Boolean(user.isActive !== false),
         cccdNumber: user.cccdNumber || null,
+        cccdImageDataUrl: user.cccdImageDataUrl || '',
         isCccdVerified: Boolean(user.isCccdVerified),
         idCardVerifiedAt: user.idCardVerifiedAt,
         trustScore: Number(user.trustScore || 0),
@@ -144,12 +147,10 @@ export async function verifyCccd(request, response, next) {
     const validation = validateVerifyCccdPayload(request.body);
 
     if (!validation.valid) {
-      const error = new Error(validation.errors[0]);
-      error.statusCode = 400;
-      throw error;
+      throw createHttpError(validation.errors[0], 400);
     }
 
-    const { cccdNumber } = validation.data;
+    const { cccdNumber, cccdImageDataUrl } = validation.data;
 
     const duplicated = await User.findOne({
       cccdNumber,
@@ -157,9 +158,7 @@ export async function verifyCccd(request, response, next) {
     }).lean();
 
     if (duplicated) {
-      const error = new Error('CCCD đã được sử dụng bởi tài khoản khác');
-      error.statusCode = 409;
-      throw error;
+      throw createHttpError('CCCD da duoc su dung boi tai khoan khac', 409);
     }
 
     const user = await User.findByIdAndUpdate(
@@ -167,6 +166,7 @@ export async function verifyCccd(request, response, next) {
       {
         $set: {
           cccdNumber,
+          cccdImageDataUrl,
           isCccdVerified: true,
           idCardVerifiedAt: new Date(),
           trustScore: 80,
@@ -176,14 +176,13 @@ export async function verifyCccd(request, response, next) {
     ).lean();
 
     if (!user) {
-      const error = new Error('Không tìm thấy tài khoản');
-      error.statusCode = 404;
-      throw error;
+      throw createHttpError('Khong tim thay tai khoan', 404);
     }
 
     response.json({
-      message: 'Xác thực CCCD thành công',
+      message: 'Tai len va xac thuc CCCD thanh cong',
       cccdNumber: user.cccdNumber,
+      cccdImageDataUrl: user.cccdImageDataUrl,
       trustScore: user.trustScore,
       verifiedAt: user.idCardVerifiedAt,
     });
@@ -192,37 +191,71 @@ export async function verifyCccd(request, response, next) {
   }
 }
 
-export async function changePasswordByCccd(request, response, next) {
+export async function sendPasswordResetOtp(request, response, next) {
   try {
-    const validation = validateChangePasswordByCccdPayload(request.body);
+    const validation = validateSendResetOtpPayload(request.body);
 
     if (!validation.valid) {
-      const error = new Error(validation.errors[0]);
-      error.statusCode = 400;
-      throw error;
+      throw createHttpError(validation.errors[0], 400);
     }
 
-    const { email, cccdNumber, newPassword } = validation.data;
-
-    const user = await User.findOne({ email, cccdNumber });
+    const { email } = validation.data;
+    const user = await User.findOne({ email });
 
     if (!user) {
-      const error = new Error('Email hoặc CCCD không đúng');
-      error.statusCode = 404;
-      throw error;
+      throw createHttpError('Khong tim thay tai khoan voi email nay', 404);
     }
 
-    if (!user.isCccdVerified) {
-      const error = new Error('Tài khoản chưa xác thực CCCD');
-      error.statusCode = 400;
-      throw error;
+    const otp = generateOtpCode();
+    user.passwordResetOtpHash = hashOtp(otp);
+    user.passwordResetOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await sendPasswordResetOtpEmail({ toEmail: email, otp });
+
+    response.json({
+      message: 'Da gui ma OTP ve Gmail cua ban',
+      expiresInMinutes: 10,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPasswordWithOtp(request, response, next) {
+  try {
+    const validation = validateResetPasswordWithOtpPayload(request.body);
+
+    if (!validation.valid) {
+      throw createHttpError(validation.errors[0], 400);
+    }
+
+    const { email, otp, newPassword } = validation.data;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      throw createHttpError('Khong tim thay tai khoan voi email nay', 404);
+    }
+
+    if (!user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt) {
+      throw createHttpError('Ban chua gui ma OTP', 400);
+    }
+
+    if (user.passwordResetOtpExpiresAt.getTime() < Date.now()) {
+      throw createHttpError('Ma OTP da het han', 400);
+    }
+
+    if (user.passwordResetOtpHash !== hashOtp(otp)) {
+      throw createHttpError('Ma OTP khong dung', 400);
     }
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordResetOtpHash = '';
+    user.passwordResetOtpExpiresAt = null;
     await user.save();
 
     response.json({
-      message: 'Đổi mật khẩu thành công qua xác thực CCCD',
+      message: 'Dat lai mat khau thanh cong bang ma OTP',
     });
   } catch (error) {
     next(error);

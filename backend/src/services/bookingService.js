@@ -105,11 +105,33 @@ export async function isRoomAvailable(roomId, checkInAt, checkOutAt) {
   const overlap = await Booking.exists({
     roomId,
     workflowStatus: { $nin: ['REJECTED', 'CANCELLED'] },
+    stayStatus: { $ne: 'CHECKED_OUT' },
     checkInAt: { $lt: checkOutAt },
     checkOutAt: { $gt: checkInAt },
   });
 
   return !overlap;
+}
+
+export function canManageBookingLifecycle(booking) {
+  return !['CANCELLED', 'REJECTED'].includes(String(booking.workflowStatus || '').toUpperCase());
+}
+
+export function canCancelBooking(booking) {
+  if (!canManageBookingLifecycle(booking)) {
+    return false;
+  }
+
+  const stayStatus = String(booking.stayStatus || '').toUpperCase();
+  if (['CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW'].includes(stayStatus)) {
+    return false;
+  }
+
+  return new Date(booking.checkInAt).getTime() > Date.now();
+}
+
+export function canRescheduleBooking(booking) {
+  return canCancelBooking(booking);
 }
 
 export async function getAvailableRooms({ province, maxPrice, range }) {

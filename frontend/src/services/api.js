@@ -35,8 +35,13 @@ export async function verifyCccd(payload) {
   return response.data;
 }
 
-export async function changePasswordByCccd(payload) {
-  const response = await api.post('/auth/change-password-cccd', payload);
+export async function sendPasswordResetOtp(payload) {
+  const response = await api.post('/auth/send-password-reset-otp', payload);
+  return response.data;
+}
+
+export async function resetPasswordWithOtp(payload) {
+  const response = await api.post('/auth/reset-password-otp', payload);
   return response.data;
 }
 

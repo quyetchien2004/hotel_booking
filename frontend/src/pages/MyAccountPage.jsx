@@ -2,11 +2,26 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import SiteLayout from '../components/SiteLayout';
 import { useAuth } from '../contexts/AuthContext';
-import { changePasswordByCccd, getMe, verifyCccd } from '../services/api';
+import { getMe, resetPasswordWithOtp, sendPasswordResetOtp, verifyCccd } from '../services/api';
 
 function fmtDate(d) {
   if (!d) return '-';
-  return new Date(d).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function MyAccountPage() {
@@ -16,17 +31,19 @@ export default function MyAccountPage() {
   const [accountUser, setAccountUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // CCCD verification state
   const [cccdNumber, setCccdNumber] = useState('');
+  const [cccdFile, setCccdFile] = useState(null);
+  const [cccdPreview, setCccdPreview] = useState('');
   const [verifyMsg, setVerifyMsg] = useState({ type: '', text: '' });
   const [verifying, setVerifying] = useState(false);
 
-  // Password change by CCCD state
   const [resetEmail, setResetEmail] = useState('');
-  const [resetCccd, setResetCccd] = useState('');
+  const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passMsg, setPassMsg] = useState({ type: '', text: '' });
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   useEffect(() => {
     getMe()
@@ -34,11 +51,11 @@ export default function MyAccountPage() {
         const profile = data?.user || null;
         setAccountUser(profile);
         setResetEmail(profile?.email || '');
-        setResetCccd(profile?.cccdNumber || '');
         setCccdNumber(profile?.cccdNumber || '');
+        setCccdPreview(profile?.cccdImageDataUrl || '');
       })
       .catch(() => {
-        setPassMsg({ type: 'danger', text: 'Không tải được thông tin tài khoản.' });
+        setPassMsg({ type: 'danger', text: 'Khong tai duoc thong tin tai khoan.' });
       })
       .finally(() => setLoading(false));
   }, []);
@@ -46,55 +63,83 @@ export default function MyAccountPage() {
   async function handleVerifySubmit(e) {
     e.preventDefault();
     if (!cccdNumber.trim()) {
-      setVerifyMsg({ type: 'danger', text: 'Vui lòng nhập số CCCD.' });
+      setVerifyMsg({ type: 'danger', text: 'Vui long nhap so CCCD.' });
+      return;
+    }
+
+    if (!cccdFile && !cccdPreview) {
+      setVerifyMsg({ type: 'danger', text: 'Vui long chon anh CCCD.' });
       return;
     }
 
     setVerifying(true);
     try {
-      const d = await verifyCccd({ cccdNumber: cccdNumber.trim() });
-      setVerifyMsg({ type: 'success', text: `${d.message}. Trust hiện tại: ${d.trustScore}%` });
-      setAccountUser((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          cccdNumber: d.cccdNumber,
-          isCccdVerified: true,
-          idCardVerifiedAt: d.verifiedAt,
-          trustScore: d.trustScore,
-        };
-      });
-      setResetCccd(cccdNumber.trim());
+      const cccdImageDataUrl = cccdFile ? await fileToDataUrl(cccdFile) : cccdPreview;
+      const d = await verifyCccd({ cccdNumber: cccdNumber.trim(), cccdImageDataUrl });
+      setVerifyMsg({ type: 'success', text: `${d.message}. Trust hien tai: ${d.trustScore}%` });
+      setAccountUser((prev) => prev ? ({
+        ...prev,
+        cccdNumber: d.cccdNumber,
+        cccdImageDataUrl: d.cccdImageDataUrl,
+        isCccdVerified: true,
+        idCardVerifiedAt: d.verifiedAt,
+        trustScore: d.trustScore,
+      }) : prev);
+      setCccdPreview(d.cccdImageDataUrl);
+      setCccdFile(null);
     } catch (err) {
-      setVerifyMsg({ type: 'danger', text: err.response?.data?.message || err.message || 'Xác minh thất bại' });
+      setVerifyMsg({ type: 'danger', text: err.response?.data?.message || err.message || 'Xac minh that bai' });
     } finally {
       setVerifying(false);
+    }
+  }
+
+  async function handleSendOtp() {
+    setPassMsg({ type: '', text: '' });
+    if (!resetEmail.trim()) {
+      setPassMsg({ type: 'danger', text: 'Vui long nhap email de nhan OTP.' });
+      return;
+    }
+
+    try {
+      setSendingOtp(true);
+      const res = await sendPasswordResetOtp({ email: resetEmail.trim() });
+      setPassMsg({ type: 'success', text: `${res.message}. OTP co hieu luc ${res.expiresInMinutes} phut.` });
+    } catch (err) {
+      setPassMsg({ type: 'danger', text: err.response?.data?.message || err.message || 'Gui OTP that bai.' });
+    } finally {
+      setSendingOtp(false);
     }
   }
 
   async function handleResetPassword() {
     setPassMsg({ type: '', text: '' });
 
-    if (!resetEmail.trim() || !resetCccd.trim() || !newPassword) {
-      setPassMsg({ type: 'danger', text: 'Vui lòng nhập đầy đủ Email, CCCD và mật khẩu mới.' });
+    if (!resetEmail.trim() || !otp.trim() || !newPassword) {
+      setPassMsg({ type: 'danger', text: 'Vui long nhap day du Email, OTP va mat khau moi.' });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPassMsg({ type: 'danger', text: 'Mật khẩu xác nhận không khớp.' });
+      setPassMsg({ type: 'danger', text: 'Mat khau xac nhan khong khop.' });
       return;
     }
 
     try {
-      const res = await changePasswordByCccd({
+      setResettingPassword(true);
+      const res = await resetPasswordWithOtp({
         email: resetEmail.trim(),
-        cccdNumber: resetCccd.trim(),
+        otp: otp.trim(),
         newPassword,
       });
-      setPassMsg({ type: 'success', text: res.message + '. Đang chuyển về trang đăng nhập...' });
-      setTimeout(() => window.location.href = '/login?passwordReset=true', 1400);
+      setPassMsg({ type: 'success', text: res.message + '. Dang chuyen ve trang dang nhap...' });
+      setTimeout(() => {
+        window.location.href = '/login?passwordReset=true';
+      }, 1400);
     } catch (err) {
-      setPassMsg({ type: 'danger', text: err.response?.data?.message || err.message });
+      setPassMsg({ type: 'danger', text: err.response?.data?.message || err.message || 'Dat lai mat khau that bai.' });
+    } finally {
+      setResettingPassword(false);
     }
   }
 
@@ -102,8 +147,8 @@ export default function MyAccountPage() {
     <SiteLayout activePage="my-account" headerVariant="light">
       <div className="container py-4">
         <div className="page-head-card mb-3">
-          <h2 className="mb-1">Tài khoản của bạn</h2>
-          <p className="text-muted mb-0">Quản lý bảo mật, xác minh CCCD và theo dõi độ tin cậy tài khoản.</p>
+          <h2 className="mb-1">Tai khoan cua ban</h2>
+          <p className="text-muted mb-0">Quan ly bao mat, upload anh CCCD de tang do tin cay va dat lai mat khau bang ma OTP Gmail.</p>
         </div>
 
         {loading && <div className="text-center py-5"><div className="spinner-border text-primary" /></div>}
@@ -112,78 +157,111 @@ export default function MyAccountPage() {
           <div className="card card-body mb-3">
             <div className="row g-3">
               <div className="col-md-6">
-                <div><strong>Tài khoản:</strong> {accountUser.username || '-'}</div>
-                <div><strong>Họ tên:</strong> {accountUser.fullName || accountUser.name}</div>
+                <div><strong>Tai khoan:</strong> {accountUser.username || '-'}</div>
+                <div><strong>Ho ten:</strong> {accountUser.fullName || accountUser.name}</div>
                 <div><strong>Email:</strong> {accountUser.email}</div>
-                <div><strong>SĐT:</strong> {accountUser.phone || '-'}</div>
+                <div><strong>SDT:</strong> {accountUser.phone || '-'}</div>
               </div>
               <div className="col-md-6">
-                <div><strong>Độ tin cậy:</strong> {accountUser.trustScore}%</div>
-                <div><strong>Trạng thái xác minh:</strong> {accountUser.isCccdVerified ? 'Đã xác minh CCCD' : 'Chưa xác minh CCCD'}</div>
-                <div><strong>Số CCCD:</strong> {accountUser.cccdNumber || '-'}</div>
-                <div><strong>Xác minh CCCD lúc:</strong> {fmtDate(accountUser.idCardVerifiedAt)}</div>
+                <div><strong>Do tin cay:</strong> {accountUser.trustScore}%</div>
+                <div><strong>Trang thai xac minh:</strong> {accountUser.isCccdVerified ? 'Da xac minh CCCD' : 'Chua xac minh CCCD'}</div>
+                <div><strong>So CCCD:</strong> {accountUser.cccdNumber || '-'}</div>
+                <div><strong>Xac minh luc:</strong> {fmtDate(accountUser.idCardVerifiedAt)}</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* CCCD Verification */}
         <div className="card card-body mb-3">
-          <h5>Xác minh CCCD</h5>
-          <p className="text-muted small">Nhập số CCCD để xác minh tài khoản. Sau khi xác minh thành công, độ tin cậy được nâng lên 80%.</p>
+          <h5>Upload anh CCCD de tang do tin cay</h5>
+          <p className="text-muted small">Tai len anh CCCD kem so CCCD. Sau khi xac thuc thanh cong, trust score tang len 80%.</p>
           <form onSubmit={handleVerifySubmit}>
-            <input
-              type="text"
-              className="form-control mb-2"
-              placeholder="Nhập số CCCD (9-12 chữ số)"
-              value={cccdNumber}
-              onChange={(e) => setCccdNumber(e.target.value)}
-              required
-            />
-            <button className="btn btn-brand" type="submit" disabled={verifying}>
-              {verifying ? 'Đang xác minh...' : 'Xác minh CCCD'}
-            </button>
+            <div className="row g-2">
+              <div className="col-md-6">
+                <label className="form-label">So CCCD</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Nhap so CCCD (9-12 chu so)"
+                  value={cccdNumber}
+                  onChange={(e) => setCccdNumber(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Anh CCCD</label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="form-control"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setCccdFile(file);
+                    if (file) {
+                      const localUrl = URL.createObjectURL(file);
+                      setCccdPreview(localUrl);
+                    }
+                  }}
+                />
+              </div>
+              {cccdPreview && (
+                <div className="col-12">
+                  <div className="border rounded-3 p-2 d-inline-block bg-light">
+                    <img src={cccdPreview} alt="CCCD preview" style={{ maxWidth: 320, width: '100%', borderRadius: 12 }} />
+                  </div>
+                </div>
+              )}
+              <div className="col-12">
+                <button className="btn btn-brand" type="submit" disabled={verifying}>
+                  {verifying ? 'Dang xac minh...' : 'Tai len va xac minh CCCD'}
+                </button>
+              </div>
+            </div>
           </form>
-          {verifyMsg.text && (
-            <div className={`alert alert-${verifyMsg.type} mb-0 mt-2`}>{verifyMsg.text}</div>
-          )}
+          {verifyMsg.text && <div className={`alert alert-${verifyMsg.type} mb-0 mt-2`}>{verifyMsg.text}</div>}
         </div>
 
-        {/* Password Reset By CCCD */}
         <div className="card card-body mb-3" style={{ borderRadius: 16 }}>
           <div className="d-flex align-items-center gap-3 mb-3">
             <div style={{ width: 40, height: 40, borderRadius: '50%', flex: '0 0 40px', background: 'linear-gradient(135deg,#1e4fc2,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><polyline points="16 3 12 7 8 3" /></svg>
             </div>
             <div>
-              <h5 className="mb-0" style={{ fontSize: '1rem' }}>Đổi mật khẩu qua xác thực CCCD</h5>
-              <small className="text-muted">Email + CCCD đã xác minh → đặt mật khẩu mới</small>
+              <h5 className="mb-0" style={{ fontSize: '1rem' }}>Doi mat khau bang ma OTP Gmail</h5>
+              <small className="text-muted">Nhap email, gui OTP, sau do xac nhan mat khau moi.</small>
             </div>
           </div>
-          <div className="d-flex flex-wrap gap-2 align-items-end">
-            <div style={{ flex: 2, minWidth: 220 }}>
-              <label className="form-label fw-semibold small mb-1">Email đăng ký</label>
-              <input className="form-control form-control-sm" placeholder="example@email.com" value={resetEmail} onChange={e => setResetEmail(e.target.value)} />
+
+          <div className="row g-2 align-items-end">
+            <div className="col-md-4">
+              <label className="form-label fw-semibold small mb-1">Email dang ky</label>
+              <input className="form-control" placeholder="example@email.com" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
             </div>
-            <div style={{ flex: 1, minWidth: 170 }}>
-              <label className="form-label fw-semibold small mb-1">Số CCCD</label>
-              <input className="form-control form-control-sm" placeholder="9-12 chữ số" value={resetCccd} onChange={e => setResetCccd(e.target.value)} />
+            <div className="col-md-2">
+              <button className="btn btn-outline-primary w-100" type="button" onClick={handleSendOtp} disabled={sendingOtp}>
+                {sendingOtp ? 'Dang gui...' : 'Gui OTP'}
+              </button>
             </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label className="form-label fw-semibold small mb-1">Mật khẩu mới</label>
-              <input type="password" className="form-control form-control-sm" placeholder="Tối thiểu 6 ký tự" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            <div className="col-md-2">
+              <label className="form-label fw-semibold small mb-1">Ma OTP</label>
+              <input className="form-control" placeholder="6 chu so" value={otp} onChange={(e) => setOtp(e.target.value)} />
             </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label className="form-label fw-semibold small mb-1">Xác nhận mật khẩu</label>
-              <input type="password" className="form-control form-control-sm" placeholder="Nhập lại mật khẩu mới" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            <div className="col-md-2">
+              <label className="form-label fw-semibold small mb-1">Mat khau moi</label>
+              <input type="password" className="form-control" placeholder="Toi thieu 6 ky tu" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
             </div>
-            <div style={{ flex: '0 0 auto' }}>
-              <button className="btn btn-brand btn-sm" type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleResetPassword}>Xác nhận đổi</button>
+            <div className="col-md-2">
+              <label className="form-label fw-semibold small mb-1">Xac nhan MK</label>
+              <input type="password" className="form-control" placeholder="Nhap lai" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            </div>
+            <div className="col-12">
+              <button className="btn btn-brand btn-sm" type="button" onClick={handleResetPassword} disabled={resettingPassword}>
+                {resettingPassword ? 'Dang dat lai...' : 'Xac nhan doi mat khau'}
+              </button>
             </div>
           </div>
-          {passMsg.text && (
-            <div className={`alert alert-${passMsg.type} mb-0 mt-2`}>{passMsg.text}</div>
-          )}
+
+          {passMsg.text && <div className={`alert alert-${passMsg.type} mb-0 mt-2`}>{passMsg.text}</div>}
         </div>
       </div>
     </SiteLayout>

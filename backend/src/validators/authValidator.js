@@ -6,6 +6,11 @@ function normalizeUsername(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function isValidDataUrlImage(value) {
+  const raw = String(value || '').trim();
+  return /^data:image\/(png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(raw);
+}
+
 export function validateLoginPayload(payload) {
   const errors = [];
   const email = normalizeEmail(payload?.email);
@@ -16,7 +21,7 @@ export function validateLoginPayload(payload) {
   const resolvedIdentifier = identifier || email || username;
 
   if (!resolvedIdentifier) {
-    errors.push('Email hoặc username là bắt buộc');
+    errors.push('Email hoac username la bat buoc');
   }
 
   if (!password) {
@@ -42,27 +47,27 @@ export function validateRegisterPayload(payload) {
   const password = String(payload?.password || '');
 
   if (!fullName) {
-    errors.push('Họ tên là bắt buộc');
+    errors.push('Ho ten la bat buoc');
   }
 
   if (!email) {
-    errors.push('Email là bắt buộc');
+    errors.push('Email la bat buoc');
   } else if (!/^\S+@\S+\.\S+$/.test(email)) {
-    errors.push('Email không hợp lệ');
+    errors.push('Email khong hop le');
   }
 
   if (!password) {
-    errors.push('Mật khẩu là bắt buộc');
+    errors.push('Mat khau la bat buoc');
   } else if (password.length < 6) {
-    errors.push('Mật khẩu phải có ít nhất 6 ký tự');
+    errors.push('Mat khau phai co it nhat 6 ky tu');
   }
 
   if (username && !/^[a-z0-9._-]{3,30}$/.test(username)) {
-    errors.push('Username chỉ gồm chữ thường, số, ., _, - và dài 3-30 ký tự');
+    errors.push('Username chi gom chu thuong, so, ., _, - va dai 3-30 ky tu');
   }
 
   if (phone && !/^[0-9+\-\s]{8,20}$/.test(phone)) {
-    errors.push('Số điện thoại không hợp lệ');
+    errors.push('So dien thoai khong hop le');
   }
 
   return {
@@ -81,11 +86,20 @@ export function validateRegisterPayload(payload) {
 export function validateVerifyCccdPayload(payload) {
   const errors = [];
   const cccdNumber = String(payload?.cccdNumber || '').trim();
+  const cccdImageDataUrl = String(payload?.cccdImageDataUrl || '').trim();
 
   if (!cccdNumber) {
-    errors.push('CCCD là bắt buộc');
+    errors.push('CCCD la bat buoc');
   } else if (!/^\d{9,12}$/.test(cccdNumber)) {
-    errors.push('CCCD phải gồm 9-12 chữ số');
+    errors.push('CCCD phai gom 9-12 chu so');
+  }
+
+  if (!cccdImageDataUrl) {
+    errors.push('Anh CCCD la bat buoc');
+  } else if (!isValidDataUrlImage(cccdImageDataUrl)) {
+    errors.push('Anh CCCD khong hop le');
+  } else if (cccdImageDataUrl.length > 4_000_000) {
+    errors.push('Anh CCCD qua lon');
   }
 
   return {
@@ -93,30 +107,50 @@ export function validateVerifyCccdPayload(payload) {
     errors,
     data: {
       cccdNumber,
+      cccdImageDataUrl,
     },
   };
 }
 
-export function validateChangePasswordByCccdPayload(payload) {
+export function validateSendResetOtpPayload(payload) {
   const errors = [];
   const email = normalizeEmail(payload?.email);
-  const cccdNumber = String(payload?.cccdNumber || '').trim();
+
+  if (!email) {
+    errors.push('Email la bat buoc');
+  } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+    errors.push('Email khong hop le');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: { email },
+  };
+}
+
+export function validateResetPasswordWithOtpPayload(payload) {
+  const errors = [];
+  const email = normalizeEmail(payload?.email);
+  const otp = String(payload?.otp || '').trim();
   const newPassword = String(payload?.newPassword || '');
 
   if (!email) {
-    errors.push('Email là bắt buộc');
+    errors.push('Email la bat buoc');
+  } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+    errors.push('Email khong hop le');
   }
 
-  if (!cccdNumber) {
-    errors.push('CCCD là bắt buộc');
-  } else if (!/^\d{9,12}$/.test(cccdNumber)) {
-    errors.push('CCCD phải gồm 9-12 chữ số');
+  if (!otp) {
+    errors.push('Ma OTP la bat buoc');
+  } else if (!/^\d{6}$/.test(otp)) {
+    errors.push('Ma OTP phai gom 6 chu so');
   }
 
   if (!newPassword) {
-    errors.push('Mật khẩu mới là bắt buộc');
+    errors.push('Mat khau moi la bat buoc');
   } else if (newPassword.length < 6) {
-    errors.push('Mật khẩu mới phải có ít nhất 6 ký tự');
+    errors.push('Mat khau moi phai co it nhat 6 ky tu');
   }
 
   return {
@@ -124,7 +158,7 @@ export function validateChangePasswordByCccdPayload(payload) {
     errors,
     data: {
       email,
-      cccdNumber,
+      otp,
       newPassword,
     },
   };
