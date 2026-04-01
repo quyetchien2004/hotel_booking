@@ -7,6 +7,7 @@ import { User } from '../models/User.js';
 import { Voucher } from '../models/Voucher.js';
 import { canCancelBooking } from '../services/bookingService.js';
 import { ensureDemoData } from '../services/seedService.js';
+import { promoteUserTrustAfterSuccessfulBooking } from '../services/trustService.js';
 
 function createHttpError(message, statusCode = 400) {
   const error = new Error(message);
@@ -496,6 +497,8 @@ export async function approveBooking(request, response, next) {
     if (!booking) {
       throw createHttpError('Khong tim thay booking', 404);
     }
+
+    await promoteUserTrustAfterSuccessfulBooking(booking.userId?._id || booking.userId);
 
     response.json(toBookingResponse(booking));
   } catch (error) {

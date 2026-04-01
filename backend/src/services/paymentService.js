@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Booking } from '../models/Booking.js';
 import { env } from '../config/env.js';
 import { generateInvoiceNumber } from './bookingService.js';
+import { promoteUserTrustAfterSuccessfulBooking } from './trustService.js';
 
 function formatDate(date = new Date()) {
   const yyyy = date.getFullYear();
@@ -117,5 +118,10 @@ export async function finalizePayment({ bookingId, responseCode }) {
   }
 
   await booking.save();
+
+  if (booking.paymentStatus === 'SUCCESS' && booking.workflowStatus === 'APPROVED') {
+    await promoteUserTrustAfterSuccessfulBooking(booking.userId);
+  }
+
   return booking;
 }

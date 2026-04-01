@@ -88,18 +88,16 @@ export function validateVerifyCccdPayload(payload) {
   const cccdNumber = String(payload?.cccdNumber || '').trim();
   const cccdImageDataUrl = String(payload?.cccdImageDataUrl || '').trim();
 
-  if (!cccdNumber) {
-    errors.push('CCCD la bat buoc');
-  } else if (!/^\d{9,12}$/.test(cccdNumber)) {
-    errors.push('CCCD phai gom 9-12 chu so');
+  if (cccdNumber && !/^\d{9,12}$/.test(cccdNumber)) {
+    errors.push('CCCD phải gồm 9-12 chữ số');
   }
 
-  if (!cccdImageDataUrl) {
-    errors.push('Anh CCCD la bat buoc');
-  } else if (!isValidDataUrlImage(cccdImageDataUrl)) {
-    errors.push('Anh CCCD khong hop le');
-  } else if (cccdImageDataUrl.length > 4_000_000) {
-    errors.push('Anh CCCD qua lon');
+  if (cccdImageDataUrl) {
+    if (!isValidDataUrlImage(cccdImageDataUrl)) {
+      errors.push('Anh CCCD khong hop le');
+    } else if (cccdImageDataUrl.length > 4_000_000) {
+      errors.push('Anh CCCD qua lon');
+    }
   }
 
   return {

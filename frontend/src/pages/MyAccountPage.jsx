@@ -26,7 +26,6 @@ function fileToDataUrl(file) {
 
 export default function MyAccountPage() {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
 
   const [accountUser, setAccountUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +45,11 @@ export default function MyAccountPage() {
   const [resettingPassword, setResettingPassword] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     getMe()
       .then((data) => {
         const profile = data?.user || null;
@@ -58,7 +62,9 @@ export default function MyAccountPage() {
         setPassMsg({ type: 'danger', text: 'Khong tai duoc thong tin tai khoan.' });
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
+
+  if (!user) return <Navigate to="/login" replace />;
 
   async function handleVerifySubmit(e) {
     e.preventDefault();
@@ -76,7 +82,10 @@ export default function MyAccountPage() {
     try {
       const cccdImageDataUrl = cccdFile ? await fileToDataUrl(cccdFile) : cccdPreview;
       const d = await verifyCccd({ cccdNumber: cccdNumber.trim(), cccdImageDataUrl });
-      setVerifyMsg({ type: 'success', text: `${d.message}. Trust hien tai: ${d.trustScore}%` });
+      setVerifyMsg({
+        type: 'success',
+        text: `${d.message}. Ho ten quet duoc: ${d.extractedName}. Trust hien tai: ${d.trustScore}%`,
+      });
       setAccountUser((prev) => prev ? ({
         ...prev,
         cccdNumber: d.cccdNumber,
@@ -174,7 +183,7 @@ export default function MyAccountPage() {
 
         <div className="card card-body mb-3">
           <h5>Upload anh CCCD de tang do tin cay</h5>
-          <p className="text-muted small">Tai len anh CCCD kem so CCCD. Sau khi xac thuc thanh cong, trust score tang len 80%.</p>
+          <p className="text-muted small">Tai len anh CCCD de he thong quet Ho va ten. Khi ten tren CCCD trung voi ten tai khoan, trust score se tang len 80%.</p>
           <form onSubmit={handleVerifySubmit}>
             <div className="row g-2">
               <div className="col-md-6">

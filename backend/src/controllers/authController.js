@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { sendPasswordResetOtpEmail, generateOtpCode, hashOtp } from '../services/mailService.js';
+import {
+  chooseBestDetectedName,
+  namesAreEquivalent,
+  scanCccdImage,
+} from '../services/cccdVerificationService.js';
 import { signAccessToken } from '../services/tokenService.js';
 import {
   validateLoginPayload,
@@ -14,6 +19,26 @@ function createHttpError(message, statusCode = 400) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+}
+
+function dataUrlToBuffer(dataUrl) {
+  const match = String(dataUrl || '').match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    mimeType: match[1],
+    buffer: Buffer.from(match[2], 'base64'),
+  };
+}
+
+function buildImageDataUrl({ mimeType, buffer }) {
+  if (!mimeType || !buffer) {
+    return '';
+  }
+
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
 function createAuthResponse(user) {
@@ -150,7 +175,39 @@ export async function verifyCccd(request, response, next) {
       throw createHttpError(validation.errors[0], 400);
     }
 
-    const { cccdNumber, cccdImageDataUrl } = validation.data;
+    const accountUser = await User.findById(request.auth.userId).select('_id name trustScore').lean();
+    if (!accountUser) {
+      throw createHttpError('Khong tim thay tai khoan can xac minh', 404);
+    }
+
+    const uploadedImage = request.file?.buffer
+      ? {
+          buffer: request.file.buffer,
+          mimeType: request.file.mimetype || 'image/jpeg',
+        }
+      : dataUrlToBuffer(validation.data.cccdImageDataUrl);
+
+    if (!uploadedImage?.buffer) {
+      throw createHttpError('Vui long tai len hinh anh CCCD de xac minh', 400);
+    }
+
+    const scanResult = await scanCccdImage(uploadedImage.buffer);
+    const extractedName = chooseBestDetectedName(accountUser.name, scanResult.detectedNames);
+    const nameMatched = namesAreEquivalent(accountUser.name, extractedName);
+    const cccdNumber = validation.data.cccdNumber || scanResult.detectedCccdNumber;
+    const cccdImageDataUrl = buildImageDataUrl(uploadedImage);
+
+    if (!extractedName) {
+      throw createHttpError('Khong doc duoc ho va ten tren CCCD. Hay tai anh ro hon', 400);
+    }
+
+    if (!nameMatched) {
+      throw createHttpError(`Ho va ten tren CCCD (${extractedName}) khong trung voi ten tai khoan (${accountUser.name})`, 400);
+    }
+
+    if (!cccdNumber) {
+      throw createHttpError('Khong doc duoc so CCCD. Hay nhap bo sung so CCCD hoac tai anh ro hon', 400);
+    }
 
     const duplicated = await User.findOne({
       cccdNumber,
@@ -169,7 +226,7 @@ export async function verifyCccd(request, response, next) {
           cccdImageDataUrl,
           isCccdVerified: true,
           idCardVerifiedAt: new Date(),
-          trustScore: 80,
+          trustScore: Math.max(Number(accountUser.trustScore || 0), 80),
         },
       },
       { new: true },
@@ -185,6 +242,9 @@ export async function verifyCccd(request, response, next) {
       cccdImageDataUrl: user.cccdImageDataUrl,
       trustScore: user.trustScore,
       verifiedAt: user.idCardVerifiedAt,
+      extractedName,
+      accountName: accountUser.name,
+      nameMatched,
     });
   } catch (error) {
     next(error);

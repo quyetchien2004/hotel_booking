@@ -31,7 +31,14 @@ export async function getMe() {
 }
 
 export async function verifyCccd(payload) {
-  const response = await api.post('/auth/verify-cccd', payload);
+  const options = payload instanceof FormData
+    ? {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    : undefined;
+  const response = await api.post('/auth/verify-cccd', payload, options);
   return response.data;
 }
 

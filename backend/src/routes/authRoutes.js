@@ -7,6 +7,7 @@ import {
 	sendPasswordResetOtp,
 	verifyCccd,
 } from '../controllers/authController.js';
+import { uploadCccdImage } from '../middlewares/uploadMiddleware.js';
 import { requireAuth } from '../middlewares/authMiddleware.js';
 
 const router = Router();
@@ -14,7 +15,7 @@ const router = Router();
 router.post('/register', register);
 router.post('/login', login);
 router.get('/me', requireAuth, getProfile);
-router.post('/verify-cccd', requireAuth, verifyCccd);
+router.post('/verify-cccd', requireAuth, uploadCccdImage, verifyCccd);
 router.post('/send-password-reset-otp', sendPasswordResetOtp);
 router.post('/reset-password-otp', resetPasswordWithOtp);
 
