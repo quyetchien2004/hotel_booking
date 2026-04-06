@@ -55,6 +55,37 @@ export function calculateRoomEstimate(room, range) {
   return roundMoney(unitPrice * units);
 }
 
+export async function getUserBookingProfile(userId) {
+  if (!userId) {
+    return {
+      user: null,
+      successfulBookingCount: 0,
+      isLoyalGuest: false,
+    };
+  }
+
+  const [user, successfulBookingCount] = await Promise.all([
+    User.findById(userId).select('_id isCccdVerified trustScore').lean(),
+    Booking.countDocuments({
+      userId,
+      paymentStatus: 'SUCCESS',
+      workflowStatus: 'APPROVED',
+    }),
+  ]);
+
+  const isLoyalGuest = Boolean(
+    user?.isCccdVerified
+      && Number(user?.trustScore || 0) >= 100
+      && successfulBookingCount >= 4,
+  );
+
+  return {
+    user,
+    successfulBookingCount,
+    isLoyalGuest,
+  };
+}
+
 export async function findApplicableVoucher(voucherCode, userId) {
   const code = String(voucherCode || '').trim().toUpperCase();
   if (!code) {
@@ -78,24 +109,17 @@ export async function findApplicableVoucher(voucherCode, userId) {
     return voucher.audience === 'ALL' ? voucher : null;
   }
 
-  const [user, successfulCount] = await Promise.all([
-    User.findById(userId).select('_id isCccdVerified trustScore').lean(),
-    Booking.countDocuments({
-      userId,
-      paymentStatus: { $in: ['SUCCESS', 'PENDING'] },
-      workflowStatus: { $nin: ['REJECTED', 'CANCELLED'] },
-    }),
-  ]);
+  const { user, successfulBookingCount: completedBookingCount } = await getUserBookingProfile(userId);
 
   switch (voucher.audience) {
     case 'ALL':
       return voucher;
     case 'NEW_USER':
-      return successfulCount === 0 ? voucher : null;
+      return completedBookingCount === 0 ? voucher : null;
     case 'LOYAL':
-      return successfulCount >= 2 ? voucher : null;
+      return completedBookingCount >= 2 ? voucher : null;
     case 'FREQUENT':
-      return user?.isCccdVerified && Number(user?.trustScore || 0) >= 80 ? voucher : null;
+      return user?.isCccdVerified && Number(user?.trustScore || 0) >= 100 ? voucher : null;
     default:
       return null;
   }
@@ -172,7 +196,9 @@ export function buildBookingFinancials({ room, range, voucher, paymentOption }) 
   const totalPrice = Math.max(0, originalPrice - discountAmount);
   const requiredPaymentAmount = paymentOption === 'FULL_100'
     ? totalPrice
-    : roundMoney(totalPrice * 0.3);
+    : paymentOption === 'LOYAL_PENDING'
+      ? totalPrice
+      : roundMoney(totalPrice * 0.3);
 
   return {
     originalPrice,

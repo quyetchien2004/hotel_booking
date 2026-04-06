@@ -40,7 +40,7 @@ export default function AdminBookingsPage() {
     api
       .get('/admin/bookings', { params: filters })
       .then((r) => setBookings(r.data || []))
-      .catch((e) => setError(e.response?.data?.message || 'Khong the tai danh sach booking.'))
+      .catch((e) => setError(e.response?.data?.message || 'Không thể tải danh sách booking.'))
       .finally(() => setLoading(false));
   }
 
@@ -54,19 +54,19 @@ export default function AdminBookingsPage() {
       await api.post(`/admin/bookings/${id}/${action}`);
       setMessage(
         action === 'approve'
-          ? 'Da duyet booking.'
+          ? 'Đã duyệt booking.'
           : action === 'reject'
-            ? 'Da tu choi booking.'
+            ? 'Đã từ chối booking.'
             : action === 'check-in'
-              ? 'Da check-in booking.'
+              ? 'Đã check-in booking.'
               : action === 'check-out'
-                ? 'Da check-out booking.'
-                : 'Da huy booking.',
+                ? 'Đã check-out booking.'
+                : 'Đã hủy booking.',
       );
       setError('');
       load();
     } catch (e) {
-      setError(e.response?.data?.message || `Thao tac ${action} that bai.`);
+      setError(e.response?.data?.message || `Thao tác ${action} thất bại.`);
     } finally {
       setPendingActionId('');
     }
@@ -80,7 +80,7 @@ export default function AdminBookingsPage() {
       <div className="container py-4">
         <div className="page-head-card mb-3">
           <h2 className="mb-1">Booking Operations</h2>
-          <p className="text-muted mb-0">Duyet coc, huy booking, check-in/check-out va giam sat vong doi don dat phong.</p>
+          <p className="text-muted mb-0">Duyệt cọc, hủy booking, check-in/check-out và giám sát vòng đời đơn đặt phòng.</p>
         </div>
 
         {message && <div className="alert alert-success">{message}</div>}
@@ -89,19 +89,19 @@ export default function AdminBookingsPage() {
         <div className="row g-3 mb-3">
           <div className="col-md-4">
             <div className="mini-stat">
-              <div className="mini-stat-label">Tong booking</div>
+              <div className="mini-stat-label">Tổng booking</div>
               <div className="mini-stat-value">{bookings.length}</div>
             </div>
           </div>
           <div className="col-md-4">
             <div className="mini-stat">
-              <div className="mini-stat-label">Cho duyet coc</div>
+              <div className="mini-stat-label">Chờ duyệt cọc</div>
               <div className="mini-stat-value">{pendingApprovals}</div>
             </div>
           </div>
           <div className="col-md-4">
             <div className="mini-stat">
-              <div className="mini-stat-label">Dang check-in</div>
+              <div className="mini-stat-label">Đang check-in</div>
               <div className="mini-stat-value">{checkedIn}</div>
             </div>
           </div>
@@ -110,28 +110,28 @@ export default function AdminBookingsPage() {
         <div className="card mb-3">
           <div className="card-body row g-2 align-items-end">
             <div className="col-md-4">
-              <label className="form-label small fw-semibold">Workflow status</label>
+              <label className="form-label small fw-semibold">Trạng thái workflow</label>
               <select
                 className="form-select"
                 value={filters.workflowStatus}
                 onChange={(event) => setFilters((prev) => ({ ...prev, workflowStatus: event.target.value }))}
               >
-                {WORKFLOW_OPTIONS.map((item) => <option key={item} value={item}>{item || 'Tat ca'}</option>)}
+                {WORKFLOW_OPTIONS.map((item) => <option key={item} value={item}>{item || 'Tất cả'}</option>)}
               </select>
             </div>
             <div className="col-md-4">
-              <label className="form-label small fw-semibold">Stay status</label>
+              <label className="form-label small fw-semibold">Trạng thái lưu trú</label>
               <select
                 className="form-select"
                 value={filters.stayStatus}
                 onChange={(event) => setFilters((prev) => ({ ...prev, stayStatus: event.target.value }))}
               >
-                {STAY_OPTIONS.map((item) => <option key={item} value={item}>{item || 'Tat ca'}</option>)}
+                {STAY_OPTIONS.map((item) => <option key={item} value={item}>{item || 'Tất cả'}</option>)}
               </select>
             </div>
             <div className="col-md-4">
               <button type="button" className="btn btn-outline-secondary" onClick={() => setFilters({ workflowStatus: '', stayStatus: '' })}>
-                Xoa bo loc
+                Xóa bộ lọc
               </button>
             </div>
           </div>
@@ -146,17 +146,17 @@ export default function AdminBookingsPage() {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Khach hang</th>
-                    <th>Chi nhanh / Phong</th>
-                    <th>Thoi gian</th>
-                    <th>Tai chinh</th>
-                    <th>Van hanh</th>
-                    <th>Thao tac</th>
+                    <th>Khách hàng</th>
+                    <th>Chi nhánh / Phòng</th>
+                    <th>Thời gian</th>
+                    <th>Tài chính</th>
+                    <th>Vận hành</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bookings.length === 0 && (
-                    <tr><td colSpan={7} className="text-muted">Khong co booking nao phu hop bo loc.</td></tr>
+                    <tr><td colSpan={7} className="text-muted">Không có booking nào phù hợp bộ lọc.</td></tr>
                   )}
                   {bookings.map((b) => {
                     const isBusy = pendingActionId === String(b.id || b.bookingId);
@@ -165,33 +165,35 @@ export default function AdminBookingsPage() {
                         <td>{b.id || b.bookingId}</td>
                         <td>
                           <div className="fw-semibold">{b.customerFullName}</div>
-                          <small className="text-muted">{b.username || 'Khach vang lai'}</small>
+                          <small className="text-muted">{b.username || 'Khách vãng lai'}</small>
                         </td>
                         <td>
                           <div>{b.branchName || '-'}</div>
-                          <small className="text-muted">Phong {b.roomNumber || '-'} • {b.roomStatus || '-'}</small>
+                          <small className="text-muted">Phòng {b.roomNumber || '-'} • {b.roomStatus || '-'}</small>
                         </td>
                         <td>
                           <div>{fmtDate(b.checkInAt)}</div>
                           <small className="text-muted">{fmtDate(b.checkOutAt)}</small>
-                          <div className="small text-muted mt-1">In/Out thuc te: {fmtDate(b.checkedInAtActual)} / {fmtDate(b.checkedOutAtActual)}</div>
+                          <div className="small text-muted mt-1">In/Out thực tế: {fmtDate(b.checkedInAtActual)} / {fmtDate(b.checkedOutAtActual)}</div>
                         </td>
                         <td>
                           <div>{fmt(b.totalPrice)}</div>
-                          <small className="text-muted">Can TT: {fmt(b.requiredPaymentAmount)}</small>
-                          <div><small className="text-muted">Da TT: {fmt(b.paidAmount)}</small></div>
+                          <small className="text-muted">Cần TT: {fmt(b.requiredPaymentAmount)}</small>
+                          <div><small className="text-muted">Đã TT: {fmt(b.paidAmount)}</small></div>
                           <div><small className="text-muted">{b.paymentStatus}</small></div>
+                          <div><small className="text-muted">Mã khóa: {b.electronicLockCode || '-'}</small></div>
                         </td>
                         <td>
                           <div><span className="badge rounded-pill bg-warning text-dark">{b.workflowStatus}</span></div>
                           <div className="mt-1"><span className="badge rounded-pill bg-info text-dark">{b.stayStatus}</span></div>
+                          <div className="small text-muted mt-1">Lock: {b.electronicLockStatus || 'UNAVAILABLE'}</div>
                         </td>
                         <td>
                           <div className="d-flex flex-wrap gap-1">
                             {b.workflowStatus === 'PENDING_DEPOSIT_APPROVAL' && (
                               <>
-                                <button className="btn btn-sm btn-success" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'approve')}>Duyet</button>
-                                <button className="btn btn-sm btn-danger" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'reject')}>Tu choi</button>
+                                <button className="btn btn-sm btn-success" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'approve')}>Duyệt</button>
+                                <button className="btn btn-sm btn-danger" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'reject')}>Từ chối</button>
                               </>
                             )}
                             {b.workflowStatus === 'APPROVED' && b.stayStatus === 'RESERVED' && (
@@ -201,7 +203,7 @@ export default function AdminBookingsPage() {
                               <button className="btn btn-sm btn-outline-primary" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'check-out')}>Check-out</button>
                             )}
                             {['APPROVED', 'PENDING_DEPOSIT_APPROVAL', 'PENDING_PAYMENT'].includes(b.workflowStatus) && b.stayStatus === 'RESERVED' && (
-                              <button className="btn btn-sm btn-outline-danger" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'cancel')}>Huy</button>
+                              <button className="btn btn-sm btn-outline-danger" disabled={isBusy} onClick={() => handleAction(b.id || b.bookingId, 'cancel')}>Hủy</button>
                             )}
                           </div>
                         </td>

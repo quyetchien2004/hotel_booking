@@ -47,28 +47,34 @@ export default function SiteHeader({ activePage = '', variant = 'light' }) {
         <div className={`brand-nav-shell${menuOpen ? ' is-open' : ''}`} id="mainNav">
           <ul className="navbar-nav mx-lg-auto align-items-lg-center brand-menu">
             <li className="nav-item">
-              <NavLink className={`nav-link${activePage === 'home' ? ' active' : ''}`} to="/" onClick={handleNavClick}>Home</NavLink>
+              <NavLink className={`nav-link${activePage === 'home' ? ' active' : ''}`} to="/" onClick={handleNavClick}>Trang chủ</NavLink>
             </li>
             <li className="nav-item">
-              <NavLink className={`nav-link${activePage === 'booking' ? ' active' : ''}`} to="/booking" onClick={handleNavClick}>Rooms</NavLink>
+              <NavLink className={`nav-link${activePage === 'booking' ? ' active' : ''}`} to="/booking" onClick={handleNavClick}>Phòng</NavLink>
             </li>
-            <li className="nav-item">
-              <NavLink className={`nav-link${activePage === 'services' ? ' active' : ''}`} to="/services" onClick={handleNavClick}>Services</NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className={`nav-link${activePage === 'blog' ? ' active' : ''}`} to="/blog" onClick={handleNavClick}>Blog</NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className={`nav-link${activePage === 'contact' ? ' active' : ''}`} to="/contact" onClick={handleNavClick}>Contact</NavLink>
-            </li>
-            {user && (
+            {!isAdmin && (
               <li className="nav-item">
-                <NavLink className={`nav-link${activePage === 'my-account' ? ' active' : ''}`} to="/my-account" onClick={handleNavClick}>Profile</NavLink>
+                <NavLink className={`nav-link${activePage === 'services' ? ' active' : ''}`} to="/services" onClick={handleNavClick}>Dịch vụ</NavLink>
+              </li>
+            )}
+            {!isAdmin && (
+              <li className="nav-item">
+                <NavLink className={`nav-link${activePage === 'blog' ? ' active' : ''}`} to="/blog" onClick={handleNavClick}>Tin tức</NavLink>
+              </li>
+            )}
+            {!isAdmin && (
+              <li className="nav-item">
+                <NavLink className={`nav-link${activePage === 'contact' ? ' active' : ''}`} to="/contact" onClick={handleNavClick}>Liên hệ</NavLink>
               </li>
             )}
             {user && (
               <li className="nav-item">
-                <NavLink className={`nav-link${activePage === 'my-bookings' ? ' active' : ''}`} to="/my-bookings" onClick={handleNavClick}>My Bookings</NavLink>
+                <NavLink className={`nav-link${activePage === 'my-account' ? ' active' : ''}`} to="/my-account" onClick={handleNavClick}>Tài khoản</NavLink>
+              </li>
+            )}
+            {user && !isAdmin && (
+              <li className="nav-item">
+                <NavLink className={`nav-link${activePage === 'my-bookings' ? ' active' : ''}`} to="/my-bookings" onClick={handleNavClick}>Đơn đặt phòng</NavLink>
               </li>
             )}
             <li className="nav-item">
@@ -76,35 +82,40 @@ export default function SiteHeader({ activePage = '', variant = 'light' }) {
             </li>
             {isAdmin && (
               <li className="nav-item">
-                <NavLink className={`nav-link${activePage === 'admin' ? ' active' : ''}`} to="/admin/manage" onClick={handleNavClick}>Admin</NavLink>
+                <NavLink className={`nav-link${activePage === 'admin' ? ' active' : ''}`} to="/admin/manage" onClick={handleNavClick}>Quản trị</NavLink>
               </li>
             )}
             {isAdmin && (
               <li className="nav-item">
-                <NavLink className="nav-link" to="/admin/bookings" onClick={handleNavClick}>Approve Deposits</NavLink>
+                <NavLink className="nav-link" to="/admin/bookings" onClick={handleNavClick}>Duyệt cọc</NavLink>
               </li>
             )}
             {isAdmin && (
               <li className="nav-item">
-                <NavLink className="nav-link" to="/admin/support-requests" onClick={handleNavClick}>Support Requests</NavLink>
+                <NavLink className={`nav-link${activePage === 'lock-codes' ? ' active' : ''}`} to="/admin/lock-codes" onClick={handleNavClick}>Mã mở khóa</NavLink>
               </li>
             )}
             {isAdmin && (
               <li className="nav-item">
-                <NavLink className={`nav-link${activePage === 'users' ? ' active' : ''}`} to="/users" onClick={handleNavClick}>Users</NavLink>
+                <NavLink className="nav-link" to="/admin/support-requests" onClick={handleNavClick}>Yêu cầu hỗ trợ</NavLink>
+              </li>
+            )}
+            {isAdmin && (
+              <li className="nav-item">
+                <NavLink className={`nav-link${activePage === 'users' ? ' active' : ''}`} to="/users" onClick={handleNavClick}>Người dùng</NavLink>
               </li>
             )}
           </ul>
 
           {!user ? (
             <div className="brand-actions">
-              <Link className="btn btn-sm btn-brand btn-brand-outline" to="/login" onClick={handleNavClick}>Login</Link>
-              <Link className="btn btn-sm btn-brand" to="/register" onClick={handleNavClick}>Register</Link>
+              <Link className="btn btn-sm btn-brand btn-brand-outline" to="/login" onClick={handleNavClick}>Đăng nhập</Link>
+              <Link className="btn btn-sm btn-brand" to="/register" onClick={handleNavClick}>Đăng ký</Link>
             </div>
           ) : (
             <div className="brand-actions">
               <button type="button" className="btn btn-sm btn-brand btn-brand-outline" onClick={handleLogout}>
-                Logout
+                Đăng xuất
               </button>
             </div>
           )}

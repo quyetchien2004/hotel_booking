@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AboutPage from './pages/AboutPage';
 import AdminBookingsPage from './pages/AdminBookingsPage';
+import AdminLockCodesPage from './pages/AdminLockCodesPage';
 import AdminManagePage from './pages/AdminManagePage';
 import AdminSupportRequestsPage from './pages/AdminSupportRequestsPage';
 import BlogDetailsPage from './pages/BlogDetailsPage';
@@ -62,6 +63,7 @@ export default function App() {
       <Route path="/invoice/:invoiceRef" element={<InvoiceDetailPage />} />
       <Route path="/users" element={<UsersPage />} />
       <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+      <Route path="/admin/lock-codes" element={<AdminLockCodesPage />} />
       <Route path="/admin/manage" element={<AdminManagePage />} />
       <Route path="/admin/support-requests" element={<AdminSupportRequestsPage />} />
       <Route path="/admin-bookings" element={<Navigate to="/admin/bookings" replace />} />

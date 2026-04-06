@@ -1,27 +1,27 @@
 const KNOWLEDGE = [
   {
     keywords: ['dat phong', 'booking', 'giu phong'],
-    answer: 'De dat phong, ban vao trang Booking, chon tinh/thanh, thoi gian, muc gia va phong phu hop. Sau khi dang nhap, he thong tao booking va chuyen ban sang VNPAY de thanh toan online.',
+    answer: 'Để đặt phòng, bạn vào trang Booking, chọn tỉnh/thành, thời gian, mức giá và phòng phù hợp. Sau khi đăng nhập, hệ thống tạo booking và chuyển bạn sang VNPAY để thanh toán online.',
   },
   {
     keywords: ['vnpay', 'thanh toan', 'online'],
-    answer: 'He thong ho tro thanh toan online qua VNPay theo 2 cach: thanh toan 100% hoac dat coc 30%. Giao dich thanh cong se cap nhat trang thai booking va phat hanh so hoa don dien tu.',
+    answer: 'Hệ thống hỗ trợ thanh toán online qua VNPay theo 2 cách: thanh toán 100% hoặc đặt cọc 30%. Giao dịch thành công sẽ cập nhật trạng thái booking và phát hành số hóa đơn điện tử.',
   },
   {
     keywords: ['hoa don', 'invoice', 'bien lai'],
-    answer: 'Sau khi giao dich thanh cong, booking se duoc gan so hoa don tu dong. Ban co the xem so hoa don trong trang Ket qua thanh toan va trong muc Don dat phong cua toi.',
+    answer: 'Sau khi giao dịch thành công, booking sẽ được gán số hóa đơn tự động. Bạn có thể xem số hóa đơn trong trang Kết quả thanh toán và trong mục Đơn đặt phòng của tôi.',
   },
   {
     keywords: ['voucher', 'welcome10', 'loyal10', 'frequent25'],
-    answer: 'Voucher WELCOME10 danh cho khach moi, LOYAL10 danh cho khach da co booking thanh cong, FREQUENT25 uu tien tai khoan da xac thuc CCCD va co do tin cay cao.',
+    answer: 'Voucher WELCOME10 dành cho tài khoản mới chưa có booking thành công. FREQUENT25 chỉ áp dụng sau khi tài khoản đã xác thực CCCD và hoàn tất booking đầu tiên để đạt trust 100. LOYAL10 được mở thêm sau khi khách hoàn tất booking thành công lần thứ 2.',
   },
   {
     keywords: ['cccd', 'xac thuc', 'trust'],
-    answer: 'Ban co the xac thuc CCCD trong trang My Account. Sau khi xac thuc thanh cong, trust score tang len va co the mo them uu dai cho tai khoan.',
+    answer: 'Bạn có thể xác thực CCCD trong trang My Account. Sau khi xác thực thành công, trust score tăng lên và có thể mở thêm ưu đãi cho tài khoản.',
   },
   {
     keywords: ['phong trong', 'room available', 'con trong'],
-    answer: 'Danh sach phong trong duoc tinh theo thoi gian ban tim kiem. Vao trang Booking, nhap khoang thoi gian va he thong se loai tru cac phong da co booking bi trung lich.',
+    answer: 'Danh sách phòng trống được tính theo thời gian bạn tìm kiếm. Vào trang Booking, nhập khoảng thời gian và hệ thống sẽ loại trừ các phòng đã có booking bị trùng lịch.',
   },
 ];
 
@@ -38,7 +38,7 @@ export function askInternalChatbot(message) {
 
   if (!normalizedMessage) {
     return {
-      answer: 'Vui long nhap cau hoi cu the de toi ho tro ban ve dat phong, voucher, thanh toan VNPay hoac tai khoan.',
+      answer: 'Vui lòng nhập câu hỏi cụ thể để tôi hỗ trợ bạn về đặt phòng, voucher, thanh toán VNPay hoặc tài khoản.',
     };
   }
 
@@ -48,6 +48,6 @@ export function askInternalChatbot(message) {
   }
 
   return {
-    answer: 'Toi co the ho tro cac chu de: dat phong, phong trong, voucher, thanh toan VNPay, hoa don va xac thuc CCCD. Ban co the hoi cu the hon de toi tra loi dung trong tam.',
+    answer: 'Tôi có thể hỗ trợ các chủ đề: đặt phòng, phòng trống, voucher, thanh toán VNPay, hóa đơn và xác thực CCCD. Bạn có thể hỏi cụ thể hơn để tôi trả lời đúng trọng tâm.',
   };
 }

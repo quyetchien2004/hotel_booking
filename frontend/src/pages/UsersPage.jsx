@@ -36,7 +36,7 @@ export default function UsersPage() {
     api
       .get('/users')
       .then((r) => setUsers(r.data || []))
-      .catch((e) => setError(e.response?.data?.message || 'Khong the tai danh sach user.'))
+      .catch((e) => setError(e.response?.data?.message || 'Không thể tải danh sách user.'))
       .finally(() => setLoading(false));
   }
 
@@ -73,31 +73,31 @@ export default function UsersPage() {
     try {
       if (form.id) {
         await api.patch(`/users/${form.id}`, form);
-        setFormMsg({ type: 'success', text: 'Cap nhat user thanh cong.' });
+        setFormMsg({ type: 'success', text: 'Cập nhật user thành công.' });
       } else {
         await api.post('/users', form);
-        setFormMsg({ type: 'success', text: 'Them user thanh cong.' });
+        setFormMsg({ type: 'success', text: 'Thêm user thành công.' });
       }
 
       setForm(emptyForm);
       load();
     } catch (err) {
-      setFormMsg({ type: 'danger', text: err.response?.data?.message || 'Luu user that bai.' });
+      setFormMsg({ type: 'danger', text: err.response?.data?.message || 'Lưu user thất bại.' });
     }
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Xoa user nay?')) return;
+    if (!window.confirm('Xóa user này?')) return;
 
     try {
       await api.post(`/users/${id}/delete`);
-      setFormMsg({ type: 'success', text: 'Da xoa user.' });
+      setFormMsg({ type: 'success', text: 'Đã xóa user.' });
       if (String(form.id) === String(id)) {
         setForm(emptyForm);
       }
       load();
     } catch (err) {
-      setFormMsg({ type: 'danger', text: err.response?.data?.message || 'Xoa user that bai.' });
+      setFormMsg({ type: 'danger', text: err.response?.data?.message || 'Xóa user thất bại.' });
     }
   }
 
@@ -108,8 +108,8 @@ export default function UsersPage() {
     <SiteLayout activePage="users" headerVariant="light">
       <div className="container py-4">
         <div className="page-head-card mb-3">
-          <h2 className="mb-1">Quan ly nguoi dung</h2>
-          <p className="text-muted mb-0">Them, sua, khoa kich hoat, doi role va xoa tai khoan nguoi dung.</p>
+          <h2 className="mb-1">Quản lý người dùng</h2>
+          <p className="text-muted mb-0">Thêm, sửa, khóa kích hoạt, đổi role và xóa tài khoản người dùng.</p>
         </div>
 
         {error && <div className="alert alert-danger">{error}</div>}
@@ -118,19 +118,19 @@ export default function UsersPage() {
         <div className="row g-3 mb-3">
           <div className="col-md-4">
             <div className="mini-stat">
-              <div className="mini-stat-label">Tong so user</div>
+              <div className="mini-stat-label">Tổng số user</div>
               <div className="mini-stat-value">{users.length}</div>
             </div>
           </div>
           <div className="col-md-4">
             <div className="mini-stat">
-              <div className="mini-stat-label">User dang hoat dong</div>
+              <div className="mini-stat-label">User đang hoạt động</div>
               <div className="mini-stat-value">{activeUsers}</div>
             </div>
           </div>
           <div className="col-md-4">
             <div className="mini-stat">
-              <div className="mini-stat-label">So admin</div>
+              <div className="mini-stat-label">Số admin</div>
               <div className="mini-stat-value">{admins}</div>
             </div>
           </div>
@@ -139,25 +139,25 @@ export default function UsersPage() {
         <div className="row g-3">
           <div className="col-lg-4">
             <div className="card h-100">
-              <div className="card-header fw-bold">{form.id ? 'Cap nhat user' : 'Them nguoi dung moi'}</div>
+              <div className="card-header fw-bold">{form.id ? 'Cập nhật user' : 'Thêm người dùng mới'}</div>
               <div className="card-body">
                 <form onSubmit={handleSubmit} className="d-grid gap-2">
                   <input className="form-control" type="text" name="username" placeholder="Username" value={form.username} onChange={handleChange} required />
-                  <input className="form-control" type="password" name="password" placeholder={form.id ? 'Mat khau moi (bo trong neu giu nguyen)' : 'Password'} value={form.password} onChange={handleChange} />
-                  <input className="form-control" type="text" name="fullName" placeholder="Ho va ten" value={form.fullName} onChange={handleChange} required />
+                  <input className="form-control" type="password" name="password" placeholder={form.id ? 'Mật khẩu mới (bỏ trống nếu giữ nguyên)' : 'Password'} value={form.password} onChange={handleChange} />
+                  <input className="form-control" type="text" name="fullName" placeholder="Họ và tên" value={form.fullName} onChange={handleChange} required />
                   <input className="form-control" type="email" name="email" placeholder="Email" value={form.email} onChange={handleChange} required />
-                  <input className="form-control" type="text" name="phone" placeholder="So dien thoai" value={form.phone} onChange={handleChange} />
+                  <input className="form-control" type="text" name="phone" placeholder="Số điện thoại" value={form.phone} onChange={handleChange} />
                   <select className="form-select" name="role" value={form.role} onChange={handleChange}>
                     <option value="member">member</option>
                     <option value="admin">admin</option>
                   </select>
                   <label className="form-check">
                     <input className="form-check-input" type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} />
-                    <span className="form-check-label">Tai khoan dang hoat dong</span>
+                    <span className="form-check-label">Tài khoản đang hoạt động</span>
                   </label>
                   <div className="d-flex gap-2">
-                    <button type="submit" className="btn btn-brand flex-grow-1">{form.id ? 'Luu thay doi' : 'Them user'}</button>
-                    <button type="button" className="btn btn-outline-secondary" onClick={() => setForm(emptyForm)}>Moi</button>
+                    <button type="submit" className="btn btn-brand flex-grow-1">{form.id ? 'Lưu thay đổi' : 'Thêm user'}</button>
+                    <button type="button" className="btn btn-outline-secondary" onClick={() => setForm(emptyForm)}>Mới</button>
                   </div>
                 </form>
               </div>
@@ -166,7 +166,7 @@ export default function UsersPage() {
 
           <div className="col-lg-8">
             <div className="card">
-              <div className="card-header fw-bold">Danh sach user</div>
+              <div className="card-header fw-bold">Danh sách user</div>
               <div className="card-body table-responsive">
                 {loading && <div className="text-center py-3"><div className="spinner-border text-primary" /></div>}
                 {!loading && (
@@ -174,22 +174,22 @@ export default function UsersPage() {
                     <thead>
                       <tr>
                         <th>Username</th>
-                        <th>Thong tin</th>
+                        <th>Thông tin</th>
                         <th>Role</th>
                         <th>Trust</th>
-                        <th>Trang thai</th>
-                        <th>Thao tac</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
                       </tr>
                     </thead>
                     <tbody>
                       {users.length === 0 && (
-                        <tr><td colSpan={6}><div className="alert alert-info mb-0">Chua co user nao.</div></td></tr>
+                        <tr><td colSpan={6}><div className="alert alert-info mb-0">Chưa có user nào.</div></td></tr>
                       )}
                       {users.map((item) => (
                         <tr key={item.id}>
                           <td>
                             <div className="fw-semibold">{item.username || '-'}</div>
-                            <small className="text-muted">Tao ngay {fmtDate(item.createdAt)}</small>
+                            <small className="text-muted">Tạo ngày {fmtDate(item.createdAt)}</small>
                           </td>
                           <td>
                             <div>{item.fullName || item.name}</div>
@@ -204,7 +204,7 @@ export default function UsersPage() {
                           <td>
                             <div>{item.trustScore}%</div>
                             <small className={`text-${item.isCccdVerified ? 'success' : 'muted'}`}>
-                              {item.isCccdVerified ? 'Da verify CCCD' : 'Chua verify CCCD'}
+                              {item.isCccdVerified ? 'Đã verify CCCD' : 'Chưa verify CCCD'}
                             </small>
                           </td>
                           <td>
@@ -214,8 +214,8 @@ export default function UsersPage() {
                           </td>
                           <td>
                             <div className="d-flex flex-wrap gap-1">
-                              <button className="btn btn-sm btn-outline-primary" type="button" onClick={() => startEdit(item)}>Sua</button>
-                              <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => handleDelete(item.id)}>Xoa</button>
+                              <button className="btn btn-sm btn-outline-primary" type="button" onClick={() => startEdit(item)}>Sửa</button>
+                              <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => handleDelete(item.id)}>Xóa</button>
                             </div>
                           </td>
                         </tr>

@@ -46,9 +46,35 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    faceImageDataUrl: {
+      type: String,
+      default: '',
+    },
     isCccdVerified: {
       type: Boolean,
       default: false,
+    },
+    cccdNameMatched: {
+      type: Boolean,
+      default: false,
+    },
+    cccdNameVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    faceMatched: {
+      type: Boolean,
+      default: false,
+    },
+    faceMatchScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    faceVerifiedAt: {
+      type: Date,
+      default: null,
     },
     idCardVerifiedAt: {
       type: Date,

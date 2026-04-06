@@ -17,24 +17,11 @@
   const selectedRoomLabelEl = document.getElementById('selectedRoomLabel');
   const customerFullNameEl = document.getElementById('customerFullName');
   const paymentOptionEl = document.getElementById('paymentOption');
+  const paymentOptionHintEl = document.getElementById('paymentOptionHint');
+  const loyalGuestHintEl = document.getElementById('loyalGuestHint');
   const confirmBookingBtn = document.getElementById('confirmBookingBtn');
   const roomContextById = {};
   const ROOM_DETAIL_BASE = '/img/rooms-details/';
-  const ROOM_IMAGE_GROUPS = {
-    '2_standard': ['2_nguoi.jpg', '2_nguoi(2).jpg'],
-    '2_luxury': ['2_nguoi_luxury.jpg'],
-    '2_luxury_ban_cong': ['2_nguoi_luxury_ban_cong.png'],
-    '4_standard': ['4_nguoi.jpg', '4_nguoi(2).jpg'],
-    '4_luxury': ['4_nguoi_luxury.jpg', '4_nguoi_luxury(2).jpg'],
-    '4_luxury_ban_cong': ['4_nguoi_luxury_ban_cong.jpg'],
-    '6_standard': ['6_nguoi.jpg'],
-    '6_luxury': ['6_nguoi_luxury.jpg'],
-    '6_luxury_ban_cong': ['6_nguoi_luxury_ban_cong.jpg'],
-    '10_standard': ['10_nguoi.jpg'],
-    '10_luxury': ['10_nguoi_luxury.jpg'],
-    '10_luxury_ban_cong': ['10_nguoi_luxury_ban_cong.jpg']
-  };
-  const ROOM_IMAGE_COUNTERS = {};
 
   const map = window.L ? L.map(mapElement).setView([16.5, 107.5], 6) : null;
   const bookingModal = window.bootstrap ? new bootstrap.Modal(document.getElementById('bookingModal')) : null;
@@ -148,10 +135,20 @@
   function roomTypeText(roomType) {
     switch (roomType) {
       case 'SINGLE': return 'Phòng đơn';
-      case 'DOUBLE': return 'Phòng đôi';
+      case 'DOUBLE': return 'Phòng 2 người';
       case 'TRIPLE': return 'Phòng 3 người';
-      case 'FAMILY': return 'Phòng gia đình';
+      case 'FAMILY': return 'Phòng 4 người';
+      case 'SUITE': return 'Phòng 6 người';
+      case 'DORM': return 'Phòng 10 người';
       default: return roomType;
+    }
+  }
+
+  function qualityTierText(qualityTier) {
+    switch (qualityTier) {
+      case 'DELUXE': return 'Deluxe';
+      case 'PREMIUM': return 'Premium view đẹp';
+      default: return 'Standard';
     }
   }
 
@@ -169,81 +166,50 @@
     return headers;
   }
 
-  function normalizeCapacity(capacity) {
-    const cap = toNumber(capacity);
-    const supported = [2, 4, 6, 10];
-    if (supported.includes(cap)) {
-      return cap;
+  function getStoredAuthUser() {
+    try {
+      return JSON.parse(window.localStorage.getItem('authUser') || 'null');
+    } catch {
+      return null;
     }
-    // If backend returns 1/3/... map to nearest configured photo group
-    return supported.reduce((best, cur) => {
-      return Math.abs(cur - cap) < Math.abs(best - cap) ? cur : best;
-    }, supported[0]);
   }
 
-  function buildCapacityDailyStats(branches) {
-    const grouped = {};
-    (branches || []).forEach((branch) => {
-      (branch.availableRooms || []).forEach((room) => {
-        const cap = normalizeCapacity(room.capacity);
-        if (!grouped[cap]) {
-          grouped[cap] = [];
-        }
-        const daily = toNumber(room.dailyRate);
-        if (daily > 0) {
-          grouped[cap].push(daily);
-        }
-      });
-    });
+  function updatePaymentOptionUi() {
+    if (!paymentOptionEl) {
+      return;
+    }
 
-    const stats = {};
-    Object.keys(grouped).forEach((capKey) => {
-      const values = grouped[capKey].slice().sort((a, b) => a - b);
-      if (values.length === 0) {
-        stats[capKey] = 0;
-        return;
+    const authUser = getStoredAuthUser();
+    const loyalOption = paymentOptionEl.querySelector('option[value="LOYAL_PENDING"]');
+    const isEligible = Boolean(authUser && authUser.isLoyalGuest);
+
+    if (loyalOption) {
+      loyalOption.disabled = !isEligible;
+      if (!isEligible && paymentOptionEl.value === 'LOYAL_PENDING') {
+        paymentOptionEl.value = 'DEPOSIT_30';
       }
-      const middle = Math.floor(values.length / 2);
-      const median = values.length % 2 === 0
-        ? (values[middle - 1] + values[middle]) / 2
-        : values[middle];
-      stats[capKey] = median;
-    });
-    return stats;
+    }
+
+    if (paymentOptionHintEl) {
+      paymentOptionHintEl.textContent = paymentOptionEl.value === 'LOYAL_PENDING'
+        ? 'Bạn sẽ không bị chuyển sang cổng thanh toán ngay. Booking được tạo trực tiếp với hóa đơn ở trạng thái pending.'
+        : 'Đơn chỉ có hiệu lực sau khi chuyển sang VNPAY và thanh toán thành công.';
+    }
+
+    if (loyalGuestHintEl) {
+      loyalGuestHintEl.className = isEligible ? 'text-success' : 'text-muted';
+      loyalGuestHintEl.textContent = isEligible
+        ? 'Tài khoản của bạn đã đạt chế độ khách thân thiết. Bạn có thể chọn đặt trước, thanh toán sau.'
+        : 'Tùy chọn đặt trước, thanh toán sau chỉ mở cho tài khoản đã xác thực CCCD, đạt trust 100% và có ít nhất 4 booking thành công.';
+    }
   }
 
-  function inferRoomImageKey(room, capacityStats) {
-    const cap = normalizeCapacity(room.capacity);
-    const capMedian = capacityStats[String(cap)] || 0;
-    const dailyRate = toNumber(room.dailyRate);
-    // Suy luận "luxury" từ mức giá tương đối trong cùng nhóm sức chứa
-    const isLuxury = capMedian > 0 && dailyRate >= capMedian * 1.12;
-    const hasBalconyView = Boolean(room.hasNiceView);
-
-    if (isLuxury && hasBalconyView) {
-      return cap + '_luxury_ban_cong';
-    }
-    if (isLuxury) {
-      return cap + '_luxury';
-    }
-    // Nếu chỉ có view đẹp, ưu tiên ảnh balcony cùng nhóm để đúng ý nghĩa minh họa
-    if (hasBalconyView && ROOM_IMAGE_GROUPS[cap + '_luxury_ban_cong']) {
-      return cap + '_luxury_ban_cong';
-    }
-    return cap + '_standard';
-  }
-
-  function resolveRoomImage(room, capacityStats) {
-    const imageKey = inferRoomImageKey(room, capacityStats);
-    const files = ROOM_IMAGE_GROUPS[imageKey] || [];
-    if (!files.length) {
-      return ROOM_DETAIL_BASE + 'CCT_floor.jpg';
+  function resolveRoomImage(room) {
+    if (Array.isArray(room.imageUrls) && room.imageUrls.length > 0) {
+      return room.imageUrls[0];
     }
 
-    const usedCount = ROOM_IMAGE_COUNTERS[imageKey] || 0;
-    ROOM_IMAGE_COUNTERS[imageKey] = usedCount + 1;
-    const picked = files[usedCount % files.length];
-    return ROOM_DETAIL_BASE + picked;
+    return ROOM_DETAIL_BASE + 'CCT_floor.jpg';
   }
 
   function flattenRoomsWithBranch(data) {
@@ -272,10 +238,13 @@
     return '<div class="room-pagination">' + buttons.join('') + '</div>';
   }
 
-  function createRoomCardHtml(item, capacityStats) {
+  function createRoomCardHtml(item) {
     const room = item.room;
     const branch = item.branch;
-    const roomImage = resolveRoomImage(room, capacityStats);
+    const roomImage = resolveRoomImage(room);
+    const description = room.description || 'Phòng được gắn bộ ảnh thật và mô tả chi tiết để bạn dễ lựa chọn trước khi đặt.';
+    const galleryCount = (room.imageGallery && room.imageGallery.length) || (room.imageUrls && room.imageUrls.length) || 0;
+    const galleryLink = '/single-rooms?roomId=' + room.roomId;
 
     return '<div class="room-item">'
       + '<div class="room-item-media">'
@@ -284,7 +253,7 @@
       + '<div class="d-flex justify-content-between align-items-start flex-wrap">'
       + '<div>'
       + '<h4>Phòng ' + room.roomNumber + ' - Tầng ' + room.floorNumber + '</h4>'
-      + '<div class="room-meta">' + roomTypeText(room.roomType) + ' • ' + room.capacity + ' khách</div>'
+      + '<div class="room-meta">' + (room.roomLabel || roomTypeText(room.roomType)) + ' • ' + qualityTierText(room.qualityTier) + '</div>'
       + '<div class="room-meta" style="margin-top:-6px;">' + branch.branchName + ' (' + branch.province + ')</div>'
       + '</div>'
       + '<div>'
@@ -292,9 +261,14 @@
       + (room.hasNiceView ? '<span class="badge-view">View đẹp</span>' : '')
       + '</div>'
       + '</div>'
+      + '<p class="room-copy">' + description + '</p>'
+      + '<div class="room-gallery-meta">' + galleryCount + ' ảnh thực tế • ' + room.capacity + ' khách • ' + room.dailyRate.toLocaleString('vi-VN') + 'đ/đêm</div>'
       + '<div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2 mt-auto">'
       + '<small>Giá giờ: ' + formatCurrency(room.hourlyRate) + ' | Giá ngày: ' + formatCurrency(room.dailyRate) + '</small>'
+      + '<div class="d-flex gap-2 flex-wrap">'
+      + '<a class="btn btn-outline-primary btn-sm room-gallery-inline" href="' + galleryLink + '">Xem bộ ảnh</a>'
       + '<button type="button" class="btn btn-brand btn-sm js-book-room" data-room-id="' + room.roomId + '">Đặt phòng ngay</button>'
+      + '</div>'
       + '</div>'
       + '</div>';
   }
@@ -311,7 +285,7 @@
     const start = (safePage - 1) * ROOMS_PER_PAGE;
     const pageItems = roomPaginationState.items.slice(start, start + ROOMS_PER_PAGE);
     const roomsHtml = pageItems
-      .map((item) => createRoomCardHtml(item, roomPaginationState.capacityStats))
+      .map((item) => createRoomCardHtml(item))
       .join('');
     const paginationHtml = buildPaginationHtml(roomPaginationState.totalPages, safePage);
 
@@ -325,7 +299,6 @@
 
   function renderResults(data) {
     Object.keys(roomContextById).forEach((k) => delete roomContextById[k]);
-    Object.keys(ROOM_IMAGE_COUNTERS).forEach((k) => delete ROOM_IMAGE_COUNTERS[k]);
 
     if (!Array.isArray(data) || data.length === 0) {
       if (map) {
@@ -340,7 +313,6 @@
     renderMapMarkers(data);
     let roomCount = 0;
     let minPrice = null;
-    const capacityStats = buildCapacityDailyStats(data);
     const flattenedRooms = flattenRoomsWithBranch(data);
 
     flattenedRooms.forEach((item) => {
@@ -360,7 +332,7 @@
     roomPaginationState.branchCount = data.length;
     roomPaginationState.totalPages = Math.max(1, Math.ceil(flattenedRooms.length / ROOMS_PER_PAGE));
     roomPaginationState.currentPage = 1;
-    roomPaginationState.capacityStats = capacityStats;
+    roomPaginationState.capacityStats = {};
 
     renderRoomPage(1);
     setSummary(data.length, roomCount, minPrice);
@@ -458,6 +430,7 @@
     selectedRoomIdEl.value = roomId;
     selectedRoomLabelEl.textContent = 'Chi nhánh: ' + branchName + ' | Phong ' + roomNumber + ' - Tầng ' + floorNumber;
     customerFullNameEl.value = '';
+    updatePaymentOptionUi();
 
     if (!bookingModal) {
       bookingAlert.innerHTML = '<div class="alert-inline warn">Không mở được hộp thoại đặt phòng. Hãy tải lại trang và thử lại.</div>';
@@ -558,13 +531,24 @@
 
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
+        return;
       }
+
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
+
+      bookingAlert.innerHTML = '<div class="alert-inline ok">Đặt phòng thành công! Mã booking #' + data.bookingId + '. Bạn có thể kiểm tra chi tiết trong mục đơn đặt phòng.</div>';
     } catch (err) {
       bookingAlert.innerHTML = '<div class="alert-inline danger">Đặt phòng thất bại: ' + err.message + '</div>';
     }
   }
 
   rentalModeEl.addEventListener('change', toggleModeFields);
+  if (paymentOptionEl) {
+    paymentOptionEl.addEventListener('change', updatePaymentOptionUi);
+  }
   form.addEventListener('submit', searchRooms);
   branchResults.addEventListener('click', handleBranchResultsClick);
   confirmBookingBtn.addEventListener('click', submitBooking);
@@ -588,6 +572,7 @@
   });
 
   toggleModeFields();
+  updatePaymentOptionUi();
   setSummary(0, 0, null);
 })();
 

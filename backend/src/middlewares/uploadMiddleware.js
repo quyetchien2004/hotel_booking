@@ -18,3 +18,8 @@ const upload = multer({
 });
 
 export const uploadCccdImage = upload.single('cccdImage');
+
+export const uploadCccdVerificationImages = upload.fields([
+  { name: 'cccdImage', maxCount: 1 },
+  { name: 'faceImage', maxCount: 1 },
+]);

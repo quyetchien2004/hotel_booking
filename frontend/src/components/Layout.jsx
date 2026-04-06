@@ -2,8 +2,8 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
-  { label: 'Trang chu', to: '/' },
-  { label: 'Tai khoan', to: '/auth' },
+  { label: 'Trang chủ', to: '/' },
+  { label: 'Tài khoản', to: '/auth' },
 ];
 
 export default function Layout({ children }) {
@@ -18,7 +18,7 @@ export default function Layout({ children }) {
               NhomCanChienThan
             </Link>
             <p className="mt-2 max-w-2xl text-sm text-brand-sand/80">
-              Bo khung React 19 + Express + Socket.IO duoc tao san de tiep tuc phat trien.
+              Bộ khung React 19 + Express + Socket.IO được tạo sẵn để tiếp tục phát triển.
             </p>
           </div>
           <nav className="flex gap-3 text-sm font-medium">
@@ -37,7 +37,7 @@ export default function Layout({ children }) {
                 onClick={logout}
                 className="rounded-full border border-brand-sand/30 px-4 py-2 text-brand-sand transition hover:bg-brand-sand hover:text-brand-ink"
               >
-                Dang xuat
+                Đăng xuất
               </button>
             ) : null}
           </nav>

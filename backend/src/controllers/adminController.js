@@ -6,6 +6,12 @@ import { SupportRequest } from '../models/SupportRequest.js';
 import { User } from '../models/User.js';
 import { Voucher } from '../models/Voucher.js';
 import { canCancelBooking } from '../services/bookingService.js';
+import {
+  disableElectronicLockCodeForBooking,
+  issueElectronicLockCodeForBooking,
+  mapElectronicLockSummary,
+  syncElectronicLockCodeForBooking,
+} from '../services/electronicLockService.js';
 import { ensureDemoData } from '../services/seedService.js';
 import { promoteUserTrustAfterSuccessfulBooking } from '../services/trustService.js';
 
@@ -107,6 +113,7 @@ function toBookingResponse(booking) {
     workflowStatus: booking.workflowStatus,
     stayStatus: booking.stayStatus,
     createdAt: booking.createdAt,
+    ...mapElectronicLockSummary(booking),
   };
 }
 
@@ -177,7 +184,7 @@ async function findBookingForAdmin(bookingId) {
     .populate('roomId', 'roomNumber status');
 
   if (!booking) {
-    throw createHttpError('Khong tim thay booking', 404);
+    throw createHttpError('Không tìm thấy booking', 404);
   }
 
   return booking;
@@ -317,7 +324,7 @@ export async function saveBranch(request, response, next) {
     };
 
     if (!data.name || !data.province || !data.address) {
-      throw createHttpError('Thieu thong tin chi nhanh bat buoc', 400);
+      throw createHttpError('Thiếu thông tin chi nhánh bắt buộc', 400);
     }
 
     let branch;
@@ -337,7 +344,7 @@ export async function deleteBranch(request, response, next) {
   try {
     await Branch.findByIdAndDelete(request.params.branchId);
     await Room.deleteMany({ branchId: request.params.branchId });
-    response.json({ message: 'Da xoa chi nhanh' });
+    response.json({ message: 'Đã xóa chi nhánh' });
   } catch (error) {
     next(error);
   }
@@ -367,7 +374,7 @@ export async function saveRoom(request, response, next) {
     const data = buildRoomPayload(payload);
 
     if (!data.branchId || !data.roomNumber) {
-      throw createHttpError('Thieu branchId hoac so phong', 400);
+      throw createHttpError('Thiếu branchId hoặc số phòng', 400);
     }
 
     let room;
@@ -387,7 +394,7 @@ export async function saveRoom(request, response, next) {
 export async function deleteRoom(request, response, next) {
   try {
     await Room.findByIdAndDelete(request.params.roomId);
-    response.json({ message: 'Da xoa phong' });
+    response.json({ message: 'Đã xóa phòng' });
   } catch (error) {
     next(error);
   }
@@ -418,7 +425,7 @@ export async function saveVoucher(request, response, next) {
     };
 
     if (!data.code || !data.name) {
-      throw createHttpError('Thieu ma hoac ten voucher', 400);
+      throw createHttpError('Thiếu mã hoặc tên voucher', 400);
     }
 
     let voucher;
@@ -437,7 +444,7 @@ export async function saveVoucher(request, response, next) {
 export async function deleteVoucher(request, response, next) {
   try {
     await Voucher.findByIdAndDelete(request.params.voucherId);
-    response.json({ message: 'Da xoa voucher' });
+    response.json({ message: 'Đã xóa voucher' });
   } catch (error) {
     next(error);
   }
@@ -450,8 +457,9 @@ export async function getPendingBookings(_request, response, next) {
       .populate('userId', 'username')
       .populate('branchId', 'name')
       .populate('roomId', 'roomNumber status')
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    await Promise.all(bookings.map((booking) => syncElectronicLockCodeForBooking(booking)));
 
     response.json(bookings.map(toBookingResponse));
   } catch (error) {
@@ -473,8 +481,9 @@ export async function getAllBookings(request, response, next) {
       .populate('userId', 'username')
       .populate('branchId', 'name')
       .populate('roomId', 'roomNumber status')
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    await Promise.all(bookings.map((booking) => syncElectronicLockCodeForBooking(booking)));
 
     response.json(bookings.map(toBookingResponse));
   } catch (error) {
@@ -484,21 +493,21 @@ export async function getAllBookings(request, response, next) {
 
 export async function approveBooking(request, response, next) {
   try {
-    const booking = await Booking.findByIdAndUpdate(
-      request.params.bookingId,
-      { workflowStatus: 'APPROVED', paymentStatus: 'SUCCESS' },
-      { new: true },
-    )
-      .populate('userId', 'username')
+    const booking = await Booking.findById(request.params.bookingId)
+      .populate('userId', 'username email')
       .populate('branchId', 'name')
-      .populate('roomId', 'roomNumber status')
-      .lean();
+      .populate('roomId', 'roomNumber status');
 
     if (!booking) {
-      throw createHttpError('Khong tim thay booking', 404);
+      throw createHttpError('Không tìm thấy booking', 404);
     }
 
+    booking.workflowStatus = 'APPROVED';
+    booking.paymentStatus = 'SUCCESS';
+    await booking.save();
+
     await promoteUserTrustAfterSuccessfulBooking(booking.userId?._id || booking.userId);
+    await issueElectronicLockCodeForBooking(booking, { sendEmail: true });
 
     response.json(toBookingResponse(booking));
   } catch (error) {
@@ -508,19 +517,24 @@ export async function approveBooking(request, response, next) {
 
 export async function rejectBooking(request, response, next) {
   try {
-    const booking = await Booking.findByIdAndUpdate(
-      request.params.bookingId,
-      { workflowStatus: 'REJECTED', paymentStatus: 'CANCELLED', cancelledAt: new Date() },
-      { new: true },
-    )
+    const booking = await Booking.findById(request.params.bookingId)
       .populate('userId', 'username')
       .populate('branchId', 'name')
-      .populate('roomId', 'roomNumber status')
-      .lean();
+      .populate('roomId', 'roomNumber status');
 
     if (!booking) {
-      throw createHttpError('Khong tim thay booking', 404);
+      throw createHttpError('Không tìm thấy booking', 404);
     }
+
+    booking.workflowStatus = 'REJECTED';
+    booking.paymentStatus = 'CANCELLED';
+    booking.cancelledAt = new Date();
+    await booking.save();
+    await disableElectronicLockCodeForBooking(booking, {
+      status: 'DISABLED',
+      reason: 'Admin từ chối booking',
+      adminUserId: request.auth.userId,
+    });
 
     response.json(toBookingResponse(booking));
   } catch (error) {
@@ -533,17 +547,22 @@ export async function adminCancelBooking(request, response, next) {
     const booking = await findBookingForAdmin(request.params.bookingId);
 
     if (!canCancelBooking(booking)) {
-      throw createHttpError('Booking nay khong the huy', 409);
+      throw createHttpError('Booking này không thể hủy', 409);
     }
 
     booking.workflowStatus = 'CANCELLED';
     booking.paymentStatus = 'CANCELLED';
     booking.cancelledAt = new Date();
-    booking.cancellationReason = String(request.body?.reason || 'Admin huy booking').trim();
+    booking.cancellationReason = String(request.body?.reason || 'Admin hủy booking').trim();
     await booking.save();
+    await disableElectronicLockCodeForBooking(booking, {
+      status: 'DISABLED',
+      reason: booking.cancellationReason,
+      adminUserId: request.auth.userId,
+    });
 
     response.json({
-      message: 'Admin da huy booking',
+      message: 'Admin đã hủy booking',
       booking: toBookingResponse(booking),
     });
   } catch (error) {
@@ -556,11 +575,11 @@ export async function checkInBooking(request, response, next) {
     const booking = await findBookingForAdmin(request.params.bookingId);
 
     if (booking.workflowStatus !== 'APPROVED') {
-      throw createHttpError('Chi booking da duoc phe duyet moi duoc check-in', 409);
+      throw createHttpError('Chỉ booking đã được phê duyệt mới được check-in', 409);
     }
 
     if (booking.stayStatus !== 'RESERVED') {
-      throw createHttpError('Booking nay khong o trang thai cho check-in', 409);
+      throw createHttpError('Booking này không ở trạng thái chờ check-in', 409);
     }
 
     booking.stayStatus = 'CHECKED_IN';
@@ -570,7 +589,7 @@ export async function checkInBooking(request, response, next) {
     await booking.populate('roomId', 'roomNumber status');
 
     response.json({
-      message: 'Da check-in thanh cong',
+      message: 'Đã check-in thành công',
       booking: toBookingResponse(booking),
     });
   } catch (error) {
@@ -583,18 +602,99 @@ export async function checkOutBooking(request, response, next) {
     const booking = await findBookingForAdmin(request.params.bookingId);
 
     if (booking.stayStatus !== 'CHECKED_IN') {
-      throw createHttpError('Chi booking dang check-in moi duoc check-out', 409);
+      throw createHttpError('Chỉ booking đang check-in mới được check-out', 409);
     }
 
     booking.stayStatus = 'CHECKED_OUT';
     booking.checkedOutAtActual = new Date();
     await booking.save();
+    await disableElectronicLockCodeForBooking(booking, {
+      status: 'EXPIRED',
+      reason: 'Booking đã check-out',
+      adminUserId: request.auth.userId,
+    });
     await setRoomOperationalStatus(booking.roomId?._id || booking.roomId, 'AVAILABLE');
     await booking.populate('roomId', 'roomNumber status');
 
     response.json({
-      message: 'Da check-out thanh cong',
+      message: 'Đã check-out thành công',
       booking: toBookingResponse(booking),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getElectronicLockCodes(request, response, next) {
+  try {
+    const status = String(request.query.status || '').trim().toUpperCase();
+    const filter = { electronicLockCode: { $ne: null } };
+
+    const bookings = await Booking.find(filter)
+      .populate('userId', 'username name email')
+      .populate('branchId', 'name')
+      .populate('roomId', 'roomNumber')
+      .sort({ createdAt: -1 });
+
+    await Promise.all(bookings.map((booking) => syncElectronicLockCodeForBooking(booking)));
+
+    const normalized = bookings
+      .map((booking) => ({
+      id: booking._id,
+      bookingId: booking._id,
+      customerFullName: booking.customerFullName,
+      username: booking.userId?.username || null,
+      email: booking.userId?.email || null,
+      branchName: booking.branchId?.name || '-',
+      roomNumber: booking.roomId?.roomNumber || '-',
+      paymentStatus: booking.paymentStatus,
+      workflowStatus: booking.workflowStatus,
+      createdAt: booking.createdAt,
+      ...mapElectronicLockSummary(booking),
+    }))
+      .filter((item) => !status || item.electronicLockStatus === status);
+
+    response.json(normalized);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function lockElectronicLockCode(request, response, next) {
+  try {
+    const booking = await Booking.findById(request.params.bookingId)
+      .populate('userId', 'username name email')
+      .populate('branchId', 'name')
+      .populate('roomId', 'roomNumber');
+
+    if (!booking) {
+      throw createHttpError('Không tìm thấy booking cho mã mở khóa', 404);
+    }
+
+    if (!booking.electronicLockCode) {
+      throw createHttpError('Booking này chưa có mã mở khóa điện tử', 409);
+    }
+
+    const resolvedStatus = mapElectronicLockSummary(booking).electronicLockStatus;
+    if (resolvedStatus !== 'ACTIVE') {
+      throw createHttpError('Chỉ mã mở khóa đang active mới có thể khóa', 409);
+    }
+
+    await disableElectronicLockCodeForBooking(booking, {
+      status: 'LOCKED',
+      reason: String(request.body?.reason || 'Admin khóa mã mở khóa').trim(),
+      adminUserId: request.auth.userId,
+    });
+
+    response.json({
+      message: 'Đã khóa mã mở khóa điện tử',
+      booking: {
+        id: booking._id,
+        bookingId: booking._id,
+        customerFullName: booking.customerFullName,
+        roomNumber: booking.roomId?.roomNumber || '-',
+        ...mapElectronicLockSummary(booking),
+      },
     });
   } catch (error) {
     next(error);
@@ -619,12 +719,12 @@ export async function createUserByAdmin(request, response, next) {
     const data = buildUserPayload(request.body);
 
     if (!data.username || !password || !data.fullName || !data.email) {
-      throw createHttpError('Thieu thong tin user bat buoc', 400);
+      throw createHttpError('Thiếu thông tin user bắt buộc', 400);
     }
 
     const exists = await User.findOne({ $or: [{ username: data.username }, { email: data.email }] }).lean();
     if (exists) {
-      throw createHttpError('Username hoac email da ton tai', 409);
+      throw createHttpError('Username hoặc email đã tồn tại', 409);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -654,7 +754,7 @@ export async function updateUserByAdmin(request, response, next) {
 
     const user = await User.findById(userId);
     if (!user) {
-      throw createHttpError('Khong tim thay user', 404);
+      throw createHttpError('Không tìm thấy user', 404);
     }
 
     const duplicate = await User.findOne({
@@ -662,7 +762,7 @@ export async function updateUserByAdmin(request, response, next) {
       $or: [{ username: data.username }, { email: data.email }],
     }).lean();
     if (duplicate) {
-      throw createHttpError('Username hoac email da ton tai', 409);
+      throw createHttpError('Username hoặc email đã tồn tại', 409);
     }
 
     user.username = data.username || user.username;
@@ -686,11 +786,11 @@ export async function updateUserByAdmin(request, response, next) {
 export async function deleteUserByAdmin(request, response, next) {
   try {
     if (String(request.params.userId) === String(request.auth.userId)) {
-      throw createHttpError('Khong the xoa tai khoan admin dang dang nhap', 409);
+      throw createHttpError('Không thể xóa tài khoản admin đang đăng nhập', 409);
     }
 
     await User.findByIdAndDelete(request.params.userId);
-    response.json({ message: 'Da xoa user thanh cong' });
+    response.json({ message: 'Đã xóa user thành công' });
   } catch (error) {
     next(error);
   }
@@ -711,7 +811,7 @@ export async function updateSupportRequestStatus(request, response, next) {
     const allowed = ['NEW', 'IN_PROGRESS', 'RESOLVED'];
 
     if (!allowed.includes(status)) {
-      throw createHttpError('Trang thai ho tro khong hop le', 400);
+      throw createHttpError('Trạng thái hỗ trợ không hợp lệ', 400);
     }
 
     const updated = await SupportRequest.findByIdAndUpdate(
@@ -721,7 +821,7 @@ export async function updateSupportRequestStatus(request, response, next) {
     ).lean();
 
     if (!updated) {
-      throw createHttpError('Khong tim thay yeu cau ho tro', 404);
+      throw createHttpError('Không tìm thấy yêu cầu hỗ trợ', 404);
     }
 
     response.json(toSupportRequestResponse(updated));

@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const registered = searchParams.get('registered') === 'true';
+  const passwordReset = searchParams.get('passwordReset') === 'true';
 
   if (loading) {
     return (
@@ -58,6 +59,7 @@ export default function LoginPage() {
       formMessage={
         <>
           {registered ? <div className="flash success">Đăng ký thành công. Bạn có thể đăng nhập ngay.</div> : null}
+          {passwordReset ? <div className="flash success">Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.</div> : null}
           {error ? <div className="flash error">{error}</div> : null}
         </>
       }

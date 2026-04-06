@@ -20,7 +20,7 @@ const bookingSchema = new mongoose.Schema(
     paidAmount: { type: Number, required: true, min: 0 },
     paymentOption: {
       type: String,
-      enum: ['DEPOSIT_30', 'FULL_100'],
+      enum: ['DEPOSIT_30', 'FULL_100', 'LOYAL_PENDING'],
       default: 'DEPOSIT_30',
     },
     paymentStatus: {
@@ -78,6 +78,46 @@ const bookingSchema = new mongoose.Schema(
     checkedOutAtActual: {
       type: Date,
       default: null,
+    },
+    electronicLockCode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    electronicLockStatus: {
+      type: String,
+      enum: ['PENDING', 'ACTIVE', 'LOCKED', 'DISABLED', 'EXPIRED'],
+      default: 'PENDING',
+    },
+    electronicLockValidFrom: {
+      type: Date,
+      default: null,
+    },
+    electronicLockValidUntil: {
+      type: Date,
+      default: null,
+    },
+    electronicLockIssuedAt: {
+      type: Date,
+      default: null,
+    },
+    electronicLockDeliveredAt: {
+      type: Date,
+      default: null,
+    },
+    electronicLockLockedAt: {
+      type: Date,
+      default: null,
+    },
+    electronicLockLockedByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    electronicLockDisabledReason: {
+      type: String,
+      default: '',
+      trim: true,
     },
   },
   { timestamps: true },

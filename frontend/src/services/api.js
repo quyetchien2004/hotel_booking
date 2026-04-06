@@ -36,8 +36,11 @@ export async function verifyCccd(payload) {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 120000,
       }
-    : undefined;
+    : {
+        timeout: 120000,
+      };
   const response = await api.post('/auth/verify-cccd', payload, options);
   return response.data;
 }

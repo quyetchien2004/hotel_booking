@@ -21,7 +21,14 @@ export async function promoteUserTrustAfterSuccessfulBooking(userId) {
     return user;
   }
 
-  user.trustScore = 100;
+  const currentTrustScore = Number(user.trustScore || 0);
+  const qualifiesForBookingBonus = Boolean(user.isCccdVerified) && currentTrustScore >= 80;
+
+  if (!qualifiesForBookingBonus) {
+    return user;
+  }
+
+  user.trustScore = Math.min(100, currentTrustScore + 20);
   await user.save();
   return user;
 }

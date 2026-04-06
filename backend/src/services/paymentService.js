@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Booking } from '../models/Booking.js';
 import { env } from '../config/env.js';
 import { generateInvoiceNumber } from './bookingService.js';
+import { issueElectronicLockCodeForBooking } from './electronicLockService.js';
 import { promoteUserTrustAfterSuccessfulBooking } from './trustService.js';
 
 function formatDate(date = new Date()) {
@@ -42,6 +43,10 @@ function buildSignedVnpayUrl(booking) {
     vnp_IpAddr: '127.0.0.1',
     vnp_CreateDate: formatDate(),
   };
+
+  if (env.vnpayBankCode) {
+    params.vnp_BankCode = env.vnpayBankCode;
+  }
 
   const sortedParams = sortObject(params);
   const searchParams = new URLSearchParams(sortedParams);
@@ -121,6 +126,7 @@ export async function finalizePayment({ bookingId, responseCode }) {
 
   if (booking.paymentStatus === 'SUCCESS' && booking.workflowStatus === 'APPROVED') {
     await promoteUserTrustAfterSuccessfulBooking(booking.userId);
+    await issueElectronicLockCodeForBooking(booking, { sendEmail: true });
   }
 
   return booking;

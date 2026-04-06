@@ -6,9 +6,17 @@ import {
   canCancelBooking,
   canRescheduleBooking,
   findApplicableVoucher,
+  generateInvoiceNumber,
+  getUserBookingProfile,
   isRoomAvailable,
   validateDateRange,
 } from '../services/bookingService.js';
+import {
+  disableElectronicLockCodeForBooking,
+  issueElectronicLockCodeForBooking,
+  mapElectronicLockSummary,
+  syncElectronicLockCodeForBooking,
+} from '../services/electronicLockService.js';
 import { buildPaymentUrl } from '../services/paymentService.js';
 import { ensureDemoData } from '../services/seedService.js';
 
@@ -48,7 +56,26 @@ function mapBookingResponse(booking) {
     createdAt: booking.createdAt,
     canCancel: canCancelBooking(booking),
     canReschedule: canRescheduleBooking(booking),
+    ...mapElectronicLockSummary(booking),
   };
+}
+
+function buildPostBookingRedirect(booking) {
+  const params = new URLSearchParams({
+    bookingId: String(booking._id),
+    status: String(booking.paymentStatus || ''),
+    paymentStatus: String(booking.paymentStatus || ''),
+    workflowStatus: String(booking.workflowStatus || ''),
+    totalPrice: String(booking.totalPrice || 0),
+    requiredPaymentAmount: String(booking.requiredPaymentAmount || 0),
+    paidAmount: String(booking.paidAmount || 0),
+  });
+
+  if (booking.invoiceNumber) {
+    params.set('invoiceNumber', booking.invoiceNumber);
+  }
+
+  return `/payment-result?${params.toString()}`;
 }
 
 async function findOwnedBooking(bookingId, auth, { allowAdmin = false } = {}) {
@@ -65,7 +92,7 @@ async function findOwnedBooking(bookingId, auth, { allowAdmin = false } = {}) {
   );
 
   if (!booking) {
-    throw createHttpError('Khong tim thay booking', 404);
+    throw createHttpError('Không tìm thấy booking', 404);
   }
 
   return booking;
@@ -79,16 +106,16 @@ async function recalculateBooking(booking, payload, userId) {
   }
 
   if (booking.stayStatus !== 'RESERVED') {
-    throw createHttpError('Chi co the doi lich booking chua check-in', 409);
+    throw createHttpError('Chỉ có thể đổi lịch booking chưa check-in', 409);
   }
 
   const room = await Room.findById(booking.roomId);
   if (!room) {
-    throw createHttpError('Khong tim thay phong cho booking', 404);
+    throw createHttpError('Không tìm thấy phòng cho booking', 404);
   }
 
   if (room.status === 'MAINTENANCE' || room.status === 'UNAVAILABLE') {
-    throw createHttpError('Phong dang tam dung van hanh', 409);
+    throw createHttpError('Phòng đang tạm dừng vận hành', 409);
   }
 
   const conflict = await Booking.exists({
@@ -101,7 +128,7 @@ async function recalculateBooking(booking, payload, userId) {
   });
 
   if (conflict) {
-      throw createHttpError('Phong khong con trong o lich moi', 409);
+      throw createHttpError('Phòng không còn trống ở lịch mới', 409);
   }
 
   const voucher = await findApplicableVoucher(booking.appliedVoucherCode, userId);
@@ -134,6 +161,9 @@ async function recalculateBooking(booking, payload, userId) {
   }
 
   await booking.save();
+  if (booking.electronicLockCode) {
+    await syncElectronicLockCodeForBooking(booking);
+  }
   return booking;
 }
 
@@ -145,9 +175,14 @@ export async function createBooking(request, response, next) {
     const customerFullName = String(request.body?.customerFullName || '').trim();
     const paymentOption = String(request.body?.paymentOption || 'DEPOSIT_30').toUpperCase();
     const voucherCode = String(request.body?.voucherCode || '').trim().toUpperCase();
+    const allowedPaymentOptions = ['DEPOSIT_30', 'FULL_100', 'LOYAL_PENDING'];
 
     if (!roomId || !customerFullName) {
-      throw createHttpError('Thieu roomId hoac ho ten nguoi dat', 400);
+      throw createHttpError('Thiếu roomId hoặc họ tên người đặt', 400);
+    }
+
+    if (!allowedPaymentOptions.includes(paymentOption)) {
+      throw createHttpError('Hình thức thanh toán không hợp lệ', 400);
     }
 
     const range = buildDateRange(request.body);
@@ -158,16 +193,21 @@ export async function createBooking(request, response, next) {
 
     const room = await Room.findById(roomId).populate('branchId');
     if (!room || !room.branchId) {
-      throw createHttpError('Khong tim thay phong can dat', 404);
+      throw createHttpError('Không tìm thấy phòng cần đặt', 404);
     }
 
     if (room.status !== 'AVAILABLE') {
-      throw createHttpError('Phong hien khong kha dung', 409);
+      throw createHttpError('Phòng hiện không khả dụng', 409);
     }
 
     const available = await isRoomAvailable(room._id, range.checkInAt, range.checkOutAt);
     if (!available) {
-      throw createHttpError('Phong da duoc dat trong khoang thoi gian nay', 409);
+      throw createHttpError('Phòng đã được đặt trong khoảng thời gian này', 409);
+    }
+
+    const bookingProfile = await getUserBookingProfile(request.auth.userId);
+    if (paymentOption === 'LOYAL_PENDING' && !bookingProfile.isLoyalGuest) {
+      throw createHttpError('Chỉ khách thân thiết mới được đặt phòng không cần thanh toán trước', 403);
     }
 
     const voucher = await findApplicableVoucher(voucherCode, request.auth.userId);
@@ -187,18 +227,30 @@ export async function createBooking(request, response, next) {
       requiredPaymentAmount: financials.requiredPaymentAmount,
       paidAmount: 0,
       paymentOption,
-      paymentStatus: 'INITIATED',
-      workflowStatus: 'PENDING_PAYMENT',
+      paymentStatus: paymentOption === 'LOYAL_PENDING' ? 'PENDING' : 'INITIATED',
+      workflowStatus: paymentOption === 'LOYAL_PENDING' ? 'APPROVED' : 'PENDING_PAYMENT',
       stayStatus: 'RESERVED',
       appliedVoucherCode: voucher?.code || null,
     });
+
+    if (paymentOption === 'LOYAL_PENDING') {
+      booking.invoiceNumber = generateInvoiceNumber(booking._id);
+      booking.invoiceIssuedAt = new Date();
+      await booking.save();
+      await issueElectronicLockCodeForBooking(booking, { sendEmail: true });
+    }
 
     response.status(201).json({
       bookingId: booking._id,
       totalPrice: booking.totalPrice,
       requiredPaymentAmount: booking.requiredPaymentAmount,
       paymentStatus: booking.paymentStatus,
-      paymentUrl: buildPaymentUrl(booking),
+      workflowStatus: booking.workflowStatus,
+      invoiceNumber: booking.invoiceNumber,
+      loyalGuestBooking: paymentOption === 'LOYAL_PENDING',
+      paymentUrl: paymentOption === 'LOYAL_PENDING' ? null : buildPaymentUrl(booking),
+      redirectUrl: paymentOption === 'LOYAL_PENDING' ? buildPostBookingRedirect(booking) : '',
+      ...mapElectronicLockSummary(booking),
     });
   } catch (error) {
     next(error);
@@ -212,6 +264,8 @@ export async function getMyBookings(request, response, next) {
       .populate('roomId', 'roomNumber')
       .sort({ createdAt: -1 });
 
+    await Promise.all(bookings.map((booking) => syncElectronicLockCodeForBooking(booking)));
+
     response.json(bookings.map(mapBookingResponse));
   } catch (error) {
     next(error);
@@ -223,18 +277,23 @@ export async function cancelBooking(request, response, next) {
     const booking = await findOwnedBooking(request.params.bookingId, request.auth);
 
     if (!canCancelBooking(booking)) {
-      throw createHttpError('Booking nay khong the huy', 409);
+      throw createHttpError('Booking này không thể hủy', 409);
     }
 
     booking.workflowStatus = 'CANCELLED';
     booking.paymentStatus = 'CANCELLED';
     booking.cancelledAt = new Date();
     booking.cancelledByUserId = request.auth.userId;
-    booking.cancellationReason = String(request.body?.reason || 'Khach hang huy lich').trim();
+    booking.cancellationReason = String(request.body?.reason || 'Khách hàng hủy lịch').trim();
     await booking.save();
+    await disableElectronicLockCodeForBooking(booking, {
+      status: 'DISABLED',
+      reason: booking.cancellationReason,
+      adminUserId: request.auth.userId,
+    });
 
     response.json({
-      message: 'Da huy booking thanh cong',
+      message: 'Đã hủy booking thành công',
       booking: mapBookingResponse(booking),
     });
   } catch (error) {
@@ -247,13 +306,13 @@ export async function rescheduleBooking(request, response, next) {
     const booking = await findOwnedBooking(request.params.bookingId, request.auth);
 
     if (!canRescheduleBooking(booking)) {
-      throw createHttpError('Booking nay khong the doi lich', 409);
+      throw createHttpError('Booking này không thể đổi lịch', 409);
     }
 
     await recalculateBooking(booking, request.body, request.auth.userId);
 
     response.json({
-      message: 'Da doi lich booking thanh cong',
+      message: 'Đã đổi lịch booking thành công',
       booking: mapBookingResponse(booking),
     });
   } catch (error) {
@@ -266,7 +325,7 @@ export async function getInvoiceDetail(request, response, next) {
     const invoiceRef = String(request.params.invoiceRef || '').trim();
 
     if (!invoiceRef) {
-      throw createHttpError('Thieu ma hoa don hoac ma don', 400);
+      throw createHttpError('Thiếu mã hóa đơn hoặc mã đơn', 400);
     }
 
     const isAdmin = String(request.auth?.role || '').toLowerCase() === 'admin';
@@ -281,7 +340,7 @@ export async function getInvoiceDetail(request, response, next) {
       .populate('userId', 'name username email phone');
 
     if (!booking) {
-      throw createHttpError('Khong tim thay hoa don tuong ung', 404);
+      throw createHttpError('Không tìm thấy hóa đơn tương ứng', 404);
     }
 
     response.json({
@@ -323,6 +382,7 @@ export async function getInvoiceDetail(request, response, next) {
         paidAmount: booking.paidAmount,
         appliedVoucherCode: booking.appliedVoucherCode,
       },
+      electronicLock: mapElectronicLockSummary(booking),
       createdAt: booking.createdAt,
     });
   } catch (error) {
