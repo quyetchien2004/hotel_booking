@@ -20,10 +20,13 @@ export default function PaymentResultPage() {
   const isSuccess = paymentStatus === 'SUCCESS';
   const isPending = paymentStatus === 'PENDING';
   const isCancelled = paymentStatus === 'CANCELLED';
+  const isLoyalPending = isPending && workflowStatus === 'APPROVED';
 
   const statusBadgeCls = isSuccess ? 'bg-success' : isCancelled ? 'bg-danger' : 'bg-warning text-dark';
   const statusDesc = isSuccess
     ? 'Thanh toán thành công, đơn đặt phòng đã được xác nhận.'
+    : isLoyalPending
+    ? 'Booking khách thân thiết đã được xác nhận. Hóa đơn đang ở trạng thái pending và chưa cần thanh toán trước.'
     : isPending
     ? 'Đã thanh toán cọc. Đơn đang chờ admin duyệt.'
     : 'Thanh toán không thành công hoặc đã bị hủy.';

@@ -63,7 +63,7 @@ export default function SiteFooter() {
           <div className="col-lg-4 col-md-6">
             <h4>Thông tin liên hệ</h4>
             <ul className="footer-info">
-              <li><i className="fa-solid fa-location-dot"></i> 123 Nguyen Hue, Da Nang</li>
+              <li><i className="fa-solid fa-location-dot"></i> 123 Nguyễn Huệ, Đà Nẵng</li>
               <li><i className="fa-solid fa-phone"></i> 0900 123 456</li>
               <li><i className="fa-solid fa-envelope"></i> support@ccthotels.vn</li>
             </ul>

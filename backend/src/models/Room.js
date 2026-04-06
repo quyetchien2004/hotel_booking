@@ -20,8 +20,18 @@ const roomSchema = new mongoose.Schema(
     roomType: {
       type: String,
       required: true,
-      enum: ['SINGLE', 'DOUBLE', 'TRIPLE', 'FAMILY', 'SUITE', 'DELUXE'],
+      enum: ['SINGLE', 'DOUBLE', 'TRIPLE', 'FAMILY', 'SUITE', 'DELUXE', 'DORM'],
       default: 'SINGLE',
+    },
+    qualityTier: {
+      type: String,
+      enum: ['STANDARD', 'DELUXE', 'PREMIUM'],
+      default: 'STANDARD',
+    },
+    roomLabel: {
+      type: String,
+      default: '',
+      trim: true,
     },
     capacity: {
       type: Number,
@@ -63,9 +73,19 @@ const roomSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    imageGallery: {
+      type: [
+        {
+          url: { type: String, required: true, trim: true },
+          title: { type: String, default: '', trim: true },
+          description: { type: String, default: '', trim: true },
+        },
+      ],
+      default: [],
+    },
     status: {
       type: String,
-      enum: ['AVAILABLE', 'UNAVAILABLE', 'MAINTENANCE'],
+      enum: ['AVAILABLE', 'OCCUPIED', 'UNAVAILABLE', 'MAINTENANCE'],
       default: 'AVAILABLE',
     },
   },

@@ -182,8 +182,8 @@ export default function HomePage() {
                 <div className="row g-3">
                   {[
                     { no: '01', code: 'WELCOME10', desc: 'Đăng ký tài khoản mới nhận ngay ưu đãi giảm 10%.' },
-                    { no: '02', code: 'LOYAL10', desc: 'Hoàn tất booking thành công lần thứ 2 để mở thêm ưu đãi 10%.' },
-                    { no: '03', code: 'FREQUENT25', desc: 'Xác minh CCCD + có booking thành công để đạt trust 100 và giảm 25%.' },
+                    { no: '02', code: 'FREQUENT25', desc: 'Xác minh CCCD và hoàn tất booking đầu tiên để đạt trust 100, sau đó nhận ưu đãi giảm 25%.' },
+                    { no: '03', code: 'LOYAL10', desc: 'Hoàn tất booking thành công lần thứ 2 để mở thêm voucher giảm 10%.' },
                   ].map(v => (
                     <div className="col-lg-4" key={v.no}>
                       <div className="journey-step">

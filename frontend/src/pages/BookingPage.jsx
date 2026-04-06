@@ -7,6 +7,16 @@ export default function BookingPage() {
   const { user } = useAuth();
 
   useEffect(() => {
+    const modalElement = document.getElementById('bookingModal');
+    const originalParent = modalElement?.parentElement || null;
+    const originalNextSibling = modalElement?.nextSibling || null;
+
+    // Move the modal to <body> so Bootstrap positions it against the viewport,
+    // not against any page wrapper that may affect fixed positioning.
+    if (modalElement && modalElement.parentElement !== document.body) {
+      document.body.appendChild(modalElement);
+    }
+
     // Load Leaflet CSS
     const leafletCss = document.createElement('link');
     leafletCss.rel = 'stylesheet';
@@ -29,6 +39,14 @@ export default function BookingPage() {
     document.body.appendChild(leafletJs);
 
     return () => {
+      if (modalElement && originalParent) {
+        if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+          originalParent.insertBefore(modalElement, originalNextSibling);
+        } else {
+          originalParent.appendChild(modalElement);
+        }
+      }
+
       try { document.head.removeChild(leafletCss); } catch {}
       try { document.body.removeChild(leafletJs); } catch {}
       const bScript = document.querySelector('script[src="/js/booking-modern.js"]');
@@ -45,12 +63,13 @@ export default function BookingPage() {
               <div>
                 <h1>Đặt phòng theo đúng nhu cầu</h1>
                 <p>Chọn bộ lọc theo khu vực, thời gian, giá tiền, voucher. Kết quả và bản đồ sẽ cập nhật ngay sau khi tìm.</p>
-                <Link className="btn btn-sm booking-gallery-btn" to="/single-rooms">
+                <Link className="btn btn-sm booking-gallery-btn" to="/room">
                   <svg style={{ width: 15, height: 15, verticalAlign: 'middle', marginRight: 5 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                   </svg>
                   Xem Bộ Ảnh Phòng Thực Tế
                 </Link>
+                <div className="booking-gallery-note">Ảnh thật theo từng hạng phòng, sức chứa và không gian bên trong để người dùng xem trước rõ hơn.</div>
               </div>
               <div className="hero-steps">
                 <span>1. Bộ lọc</span>
@@ -77,7 +96,7 @@ export default function BookingPage() {
                   <div className="row g-2">
                     <div className="col-md-7 col-xl-12">
                       <label className="form-label" htmlFor="province">Tỉnh/Thành phố</label>
-                      <input className="form-control" id="province" placeholder="VD: Ha Noi, Da Nang..." />
+                      <input className="form-control" id="province" placeholder="VD: Hà Nội, Đà Nẵng..." />
                     </div>
                     <div className="col-md-5 col-xl-12">
                       <label className="form-label" htmlFor="rentalMode">Kiểu thuê</label>
@@ -184,8 +203,10 @@ export default function BookingPage() {
               <select className="form-select" id="paymentOption">
                 <option value="FULL_100">Thanh toán 100% giá trị đơn</option>
                 <option value="DEPOSIT_30">Đặt cọc 30% để giữ phòng</option>
+                <option value="LOYAL_PENDING">Khách thân thiết: đặt trước, thanh toán sau</option>
               </select>
-              <small className="text-muted d-block mt-1">Đơn chỉ có hiệu lực sau khi chuyển sang VNPAY và thanh toán thành công.</small>
+              <small className="text-muted d-block mt-1" id="paymentOptionHint">Đơn chỉ có hiệu lực sau khi chuyển sang VNPAY và thanh toán thành công.</small>
+              <div className="small mt-2" id="loyalGuestHint"></div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>

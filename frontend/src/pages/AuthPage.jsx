@@ -24,7 +24,7 @@ export default function AuthPage() {
   if (loading) {
     return (
       <section className="card-surface p-6 sm:p-8">
-        <p className="text-slate-700">Dang tai du lieu nguoi dung...</p>
+        <p className="text-slate-700">Đang tải dữ liệu người dùng...</p>
       </section>
     );
   }
@@ -41,7 +41,7 @@ export default function AuthPage() {
     try {
       await login(loginForm);
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Dang nhap that bai');
+      setError(requestError?.response?.data?.message || 'Đăng nhập thất bại');
     } finally {
       setPending(false);
     }
@@ -55,7 +55,7 @@ export default function AuthPage() {
     try {
       await register(registerForm);
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Dang ky that bai');
+      setError(requestError?.response?.data?.message || 'Đăng ký thất bại');
     } finally {
       setPending(false);
     }
@@ -63,8 +63,8 @@ export default function AuthPage() {
 
   return (
     <section className="mx-auto max-w-xl card-surface p-6 sm:p-8">
-      <h1 className="text-3xl font-bold text-brand-ink">Tai khoan</h1>
-      <p className="mt-2 text-slate-600">Dang nhap hoac tao tai khoan de dat phong khach san.</p>
+      <h1 className="text-3xl font-bold text-brand-ink">Tài khoản</h1>
+      <p className="mt-2 text-slate-600">Đăng nhập hoặc tạo tài khoản để đặt phòng khách sạn.</p>
 
       <div className="mt-6 flex rounded-full bg-brand-sand p-1">
         <button
@@ -74,7 +74,7 @@ export default function AuthPage() {
             mode === 'login' ? 'bg-brand-clay text-white' : 'text-brand-ink'
           }`}
         >
-          Dang nhap
+          Đăng nhập
         </button>
         <button
           type="button"
@@ -83,7 +83,7 @@ export default function AuthPage() {
             mode === 'register' ? 'bg-brand-clay text-white' : 'text-brand-ink'
           }`}
         >
-          Dang ky
+          Đăng ký
         </button>
       </div>
 
@@ -102,7 +102,7 @@ export default function AuthPage() {
             />
           </label>
           <label className="block text-sm text-slate-700">
-            Mat khau
+            Mật khẩu
             <input
               type="password"
               className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none focus:border-brand-clay"
@@ -116,7 +116,7 @@ export default function AuthPage() {
             disabled={pending}
             className="w-full rounded-xl bg-brand-ink px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {pending ? 'Dang xu ly...' : 'Dang nhap'}
+            {pending ? 'Đang xử lý...' : 'Đăng nhập'}
           </button>
         </form>
       ) : (
@@ -142,7 +142,7 @@ export default function AuthPage() {
             />
           </label>
           <label className="block text-sm text-slate-700">
-            Mat khau (toi thieu 6 ky tu)
+            Mật khẩu (tối thiểu 6 ký tự)
             <input
               type="password"
               minLength={6}
@@ -157,7 +157,7 @@ export default function AuthPage() {
             disabled={pending}
             className="w-full rounded-xl bg-brand-clay px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {pending ? 'Dang xu ly...' : 'Tao tai khoan'}
+            {pending ? 'Đang xử lý...' : 'Tạo tài khoản'}
           </button>
         </form>
       )}

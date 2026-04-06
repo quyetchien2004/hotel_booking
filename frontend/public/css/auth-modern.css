@@ -46,6 +46,129 @@ body.auth-body {
   animation: rise-in 0.65s ease-out both;
 }
 
+.auth-shell--framed {
+  max-width: none;
+}
+
+.auth-page {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28%),
+    radial-gradient(circle at right 10%, rgba(15, 118, 110, 0.14), transparent 32%),
+    linear-gradient(180deg, #f6efe6 0%, #f3eadf 28%, #f8f4ee 100%);
+}
+
+.auth-page::before,
+.auth-page::after {
+  content: '';
+  position: absolute;
+  inset: auto;
+  width: 340px;
+  height: 340px;
+  border-radius: 999px;
+  filter: blur(10px);
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.auth-page::before {
+  top: 72px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(217, 123, 102, 0.34), transparent 70%);
+}
+
+.auth-page::after {
+  right: -140px;
+  bottom: 140px;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.22), transparent 68%);
+}
+
+.auth-page__backdrop {
+  position: relative;
+  padding: 72px 0 96px;
+}
+
+.auth-page__container {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-page__eyebrow {
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.auth-brand__content {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand__footer {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-switcher {
+  display: inline-flex;
+  width: fit-content;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(248, 250, 252, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.auth-switcher__link {
+  padding: 10px 18px;
+  border-radius: 999px;
+  color: rgba(248, 250, 252, 0.8);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.auth-switcher__link:hover {
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.auth-switcher__link.is-active {
+  background: rgba(248, 250, 252, 0.18);
+  color: #ffffff;
+}
+
+.auth-highlights {
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-highlights li {
+  position: relative;
+  padding-left: 28px;
+  color: rgba(248, 250, 252, 0.92);
+  line-height: 1.65;
+}
+
+.auth-highlights li::before {
+  content: '\f058';
+  position: absolute;
+  left: 0;
+  top: 1px;
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  color: #a7f3d0;
+}
+
 .auth-brand {
   padding: 46px 40px;
   position: relative;
@@ -244,6 +367,10 @@ body.auth-body {
 }
 
 @media (max-width: 900px) {
+  .auth-page__backdrop {
+    padding: 56px 0 72px;
+  }
+
   .auth-shell {
     grid-template-columns: 1fr;
     max-width: 620px;
@@ -259,8 +386,27 @@ body.auth-body {
 }
 
 @media (max-width: 560px) {
+<<<<<<< HEAD
+  .auth-page {
+    padding: 14px;
+=======
+  .auth-page__backdrop {
+    padding: 36px 0 56px;
+>>>>>>> 7195977 (cập nhật giao diện + chức năng quét CCCD (Khuê))
+  }
+
   body.auth-body {
     padding: 14px;
+  }
+
+  .auth-switcher {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .auth-switcher__link {
+    flex: 1;
+    text-align: center;
   }
 
   .auth-panel {

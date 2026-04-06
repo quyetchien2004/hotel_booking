@@ -192,9 +192,34 @@ h6,
 }
 
 .btn-brand-outline {
-  background: transparent;
-  border: 1px solid rgba(219, 231, 255, 0.6);
-  color: #e7efff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(25, 58, 115, 0.24);
+  color: #173766;
+}
+
+.brand-header--dark .btn-brand-outline {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(219, 231, 255, 0.6);
+  color: #edf4ff;
+}
+
+.btn-brand-outline:hover,
+.btn-brand-outline:focus-visible {
+  background: linear-gradient(120deg, rgba(45, 107, 255, 0.14), rgba(15, 78, 200, 0.16));
+  border-color: rgba(31, 81, 176, 0.42);
+  color: #102a52;
+  box-shadow: 0 10px 24px rgba(32, 71, 146, 0.16);
+}
+
+.brand-header--dark .btn-brand-outline:hover,
+.brand-header--dark .btn-brand-outline:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.82);
+  color: #ffffff;
+}
+
+.btn-brand-outline:focus-visible {
+  outline: none;
 }
 
 .hero-section {

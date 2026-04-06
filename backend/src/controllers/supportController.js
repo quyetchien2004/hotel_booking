@@ -12,13 +12,13 @@ export async function createSupportRequest(request, response, next) {
     const message = String(request.body?.message || '').trim();
 
     if (!name || !email || !topic || !message) {
-      const error = new Error('Vui long dien day du thong tin ho tro.');
+      const error = new Error('Vui lòng điền đầy đủ thông tin hỗ trợ.');
       error.statusCode = 400;
       throw error;
     }
 
     if (!isEmail(email)) {
-      const error = new Error('Email khong hop le.');
+      const error = new Error('Email không hợp lệ.');
       error.statusCode = 400;
       throw error;
     }
@@ -33,7 +33,7 @@ export async function createSupportRequest(request, response, next) {
     response.status(201).json({
       id: created._id,
       status: created.status,
-      message: 'Yeu cau ho tro da duoc ghi nhan. Chung toi se phan hoi som nhat.',
+      message: 'Yêu cầu hỗ trợ đã được ghi nhận. Chúng tôi sẽ phản hồi sớm nhất.',
       createdAt: created.createdAt,
     });
   } catch (error) {

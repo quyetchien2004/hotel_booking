@@ -20,7 +20,7 @@ const bookingSchema = new mongoose.Schema(
     paidAmount: { type: Number, required: true, min: 0 },
     paymentOption: {
       type: String,
-      enum: ['DEPOSIT_30', 'FULL_100'],
+      enum: ['DEPOSIT_30', 'FULL_100', 'LOYAL_PENDING'],
       default: 'DEPOSIT_30',
     },
     paymentStatus: {
@@ -47,6 +47,77 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       enum: ['PENDING_PAYMENT', 'PENDING_DEPOSIT_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED'],
       default: 'PENDING_PAYMENT',
+    },
+    stayStatus: {
+      type: String,
+      enum: ['RESERVED', 'CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW'],
+      default: 'RESERVED',
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    cancellationReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    rescheduledAt: {
+      type: Date,
+      default: null,
+    },
+    checkedInAtActual: {
+      type: Date,
+      default: null,
+    },
+    checkedOutAtActual: {
+      type: Date,
+      default: null,
+    },
+    electronicLockCode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    electronicLockStatus: {
+      type: String,
+      enum: ['PENDING', 'ACTIVE', 'LOCKED', 'DISABLED', 'EXPIRED'],
+      default: 'PENDING',
+    },
+    electronicLockValidFrom: {
+      type: Date,
+      default: null,
+    },
+    electronicLockValidUntil: {
+      type: Date,
+      default: null,
+    },
+    electronicLockIssuedAt: {
+      type: Date,
+      default: null,
+    },
+    electronicLockDeliveredAt: {
+      type: Date,
+      default: null,
+    },
+    electronicLockLockedAt: {
+      type: Date,
+      default: null,
+    },
+    electronicLockLockedByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    electronicLockDisabledReason: {
+      type: String,
+      default: '',
+      trim: true,
     },
   },
   { timestamps: true },

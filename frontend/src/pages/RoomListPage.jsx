@@ -3,11 +3,33 @@ import { Link } from 'react-router-dom';
 import SiteLayout from '../components/SiteLayout';
 import { listRooms } from '../services/api';
 
+const ROOMS_PER_PAGE = 9;
+
+function roomTypeLabel(value) {
+  switch (value) {
+    case 'DOUBLE': return 'Phòng 2 người';
+    case 'TRIPLE': return 'Phòng 3 người';
+    case 'SUITE': return 'Phòng 6 người';
+    case 'FAMILY': return 'Phòng gia đình';
+    case 'DORM': return 'Phòng 10 người';
+    default: return value;
+  }
+}
+
+function qualityTierLabel(value) {
+  switch (value) {
+    case 'DELUXE': return 'Deluxe';
+    case 'PREMIUM': return 'Premium';
+    default: return 'Standard';
+  }
+}
+
 export default function RoomListPage() {
   const [rooms, setRooms] = useState([]);
   const [filters, setFilters] = useState({ roomType: '', minCapacity: '', status: 'AVAILABLE', maxPrice: '', keyword: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     async function loadRooms() {
@@ -46,9 +68,13 @@ export default function RoomListPage() {
     return passPrice && passKeyword;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredRooms.length / ROOMS_PER_PAGE));
+  const pagedRooms = filteredRooms.slice((page - 1) * ROOMS_PER_PAGE, page * ROOMS_PER_PAGE);
+
   function onFilterChange(event) {
     const { name, value } = event.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
+    setPage(1);
   }
 
   return (
@@ -65,10 +91,11 @@ export default function RoomListPage() {
               <label className="form-label small fw-semibold">Loại phòng</label>
               <select className="form-select" name="roomType" value={filters.roomType} onChange={onFilterChange}>
                 <option value="">Tất cả</option>
-                <option value="STANDARD">STANDARD</option>
-                <option value="DELUXE">DELUXE</option>
-                <option value="SUITE">SUITE</option>
-                <option value="FAMILY">FAMILY</option>
+                <option value="DOUBLE">Phòng 2 người</option>
+                <option value="TRIPLE">Phòng 3 người</option>
+                <option value="SUITE">Phòng 6 người</option>
+                <option value="FAMILY">Phòng gia đình</option>
+                <option value="DORM">Phòng 10 người</option>
               </select>
             </div>
             <div className="col-md-2">
@@ -78,9 +105,9 @@ export default function RoomListPage() {
             <div className="col-md-2">
               <label className="form-label small fw-semibold">Trạng thái</label>
               <select className="form-select" name="status" value={filters.status} onChange={onFilterChange}>
-                <option value="AVAILABLE">AVAILABLE</option>
-                <option value="BOOKED">BOOKED</option>
-                <option value="MAINTENANCE">MAINTENANCE</option>
+                <option value="AVAILABLE">Sẵn sàng</option>
+                <option value="BOOKED">Đã đặt</option>
+                <option value="MAINTENANCE">Bảo trì</option>
               </select>
             </div>
             <div className="col-md-2">
@@ -99,7 +126,7 @@ export default function RoomListPage() {
 
         {!loading && !error && (
           <div className="row g-3">
-            {filteredRooms.map((room) => (
+            {pagedRooms.map((room) => (
               <div className="col-md-6 col-lg-4" key={room.id}>
                 <div className="card h-100">
                   <img
@@ -109,10 +136,12 @@ export default function RoomListPage() {
                     style={{ height: 210, objectFit: 'cover' }}
                   />
                   <div className="card-body d-flex flex-column">
-                    <h5 className="card-title mb-1">Phòng {room.roomNumber}</h5>
-                    <p className="text-muted small mb-2">{room.roomType} • {room.capacity} khách</p>
+                    <h5 className="card-title mb-1">{room.roomLabel || `Phòng ${room.roomNumber}`}</h5>
+                    <p className="text-muted small mb-2">Phòng {room.roomNumber} • {roomTypeLabel(room.roomType)} • {qualityTierLabel(room.qualityTier)} • {room.capacity} khách</p>
                     <p className="card-text small">{room.description || 'Phòng tiện nghi, phù hợp nghỉ dưỡng và công tác.'}</p>
+                    <div className="small text-muted mb-2">Chi nhánh: {room.branchName || '-'} {room.province ? `• ${room.province}` : ''}</div>
                     <div className="small text-muted mb-2">Giá ngày: {Number(room.dailyRate || 0).toLocaleString('vi-VN')}đ</div>
+                    <div className="small text-muted mb-3">Bộ ảnh thực tế: {room.imageGallery?.length || room.imageUrls?.length || 0} ảnh</div>
                     <div className="mt-auto d-flex gap-2">
                       <Link to={`/single-rooms?roomId=${room.id}`} className="btn btn-outline-primary btn-sm">Xem chi tiết ảnh</Link>
                       <Link to="/booking" className="btn btn-brand btn-sm">Đặt phòng</Link>
@@ -128,6 +157,18 @@ export default function RoomListPage() {
               </div>
             )}
           </div>
+        )}
+
+        {!loading && !error && filteredRooms.length > ROOMS_PER_PAGE && (
+          <nav aria-label="Phân trang danh sách phòng" className="mt-4 d-flex justify-content-center">
+            <ul className="pagination mb-0">
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                <li key={pageNumber} className={`page-item${pageNumber === page ? ' active' : ''}`}>
+                  <button className="page-link" type="button" onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+                </li>
+              ))}
+            </ul>
+          </nav>
         )}
       </main>
     </SiteLayout>
